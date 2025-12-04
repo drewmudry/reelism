@@ -8,9 +8,9 @@ export default function SignInPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
-  // If user is already logged in, redirect to dashboard
+  // If user is already logged in, redirect to app
   if (session && !isPending) {
-    router.push("/dashboard");
+    router.push("/app");
     return null;
   }
 
@@ -36,7 +36,7 @@ export default function SignInPage() {
               onClick={() =>
                 authClient.signIn.social({
                   provider: "google",
-                  callbackURL: "/dashboard",
+                  callbackURL: "/app",
                 })
               }
               className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white px-6 text-base font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"
@@ -58,7 +58,7 @@ export default function SignInPage() {
               onClick={() =>
                 authClient.signIn.social({
                   provider: "discord",
-                  callbackURL: "/dashboard",
+                  callbackURL: "/app",
                 })
               }
               className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white px-6 text-base font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"

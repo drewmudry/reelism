@@ -8,9 +8,9 @@ export default function Home() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
-  // If user is already logged in, redirect to dashboard
+  // If user is already logged in, redirect to app
   if (session && !isPending) {
-    router.push("/dashboard");
+    router.push("/app");
     return null;
   }
 

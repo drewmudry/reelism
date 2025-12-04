@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 export async function proxy(request: NextRequest) {
   // Check if the user is accessing a protected route
-  if (request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (request.nextUrl.pathname.startsWith("/app")) {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
@@ -22,6 +22,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   runtime: "nodejs", // Required for auth.api calls
-  matcher: ["/dashboard/:path*"], // Specify the routes the proxy applies to
+  matcher: ["/app/:path*"], // Specify the routes the proxy applies to
 };
 

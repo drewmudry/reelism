@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { UserPill } from "./user-pill";
+import { UserPill } from "./components/user-pill";
 import { TriggerButton } from "@/components/trigger/testButton";
 
 export default async function DashboardPage() {
