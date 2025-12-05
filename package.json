@@ -11,9 +11,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit generate && drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "export:prompts": "tsx scripts/export-avatar-prompts.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.943.0",
     "@google/genai": "^1.31.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-slot": "^1.2.4",

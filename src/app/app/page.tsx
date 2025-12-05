@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { UserPill } from "./components/user-pill";
 import { TriggerButton } from "@/components/trigger/testButton";
+import { GenerateAllAvatarsButton } from "@/components/avatar/generate-all-avatars-button";
+import { AvatarList } from "@/components/avatar/avatar-list";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -26,7 +28,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         <div className="rounded-lg bg-white p-8 shadow-sm dark:bg-zinc-900">
           <h2 className="mb-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
             Welcome back, {user.name || user.email}!
@@ -34,9 +36,27 @@ export default async function DashboardPage() {
           <p className="mb-6 text-zinc-600 dark:text-zinc-400">
             Your email is: {user.email}
           </p>
-          <div className="border-t border-zinc-200 pt-6 dark:border-zinc-800">
-            <TriggerButton />
+          <div className="border-t border-zinc-200 pt-6 dark:border-zinc-800 space-y-6">
+            <div>
+              <h3 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Avatar Generation
+              </h3>
+              <GenerateAllAvatarsButton />
+            </div>
+            <div>
+              <h3 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Test Trigger
+              </h3>
+              <TriggerButton />
+            </div>
           </div>
+        </div>
+
+        <div className="rounded-lg bg-white p-8 shadow-sm dark:bg-zinc-900">
+          <h2 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+            Your Avatars
+          </h2>
+          <AvatarList />
         </div>
       </main>
     </div>

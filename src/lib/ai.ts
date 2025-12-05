@@ -11,8 +11,10 @@ const ai = new GoogleGenAI({
 export interface ImageGenerationOptions {
   /** Number of images to generate (1-4) */
   numberOfImages?: number;
-  /** Aspect ratio: "1:1", "3:4", "4:3", "9:16", or "16:9" */
-  aspectRatio?: '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
+  /** Aspect ratio: "3:4" or "9:16" (vertical only) */
+  aspectRatio?: '3:4' | '9:16';
+  /** Image size: "1K" or "2K" */
+  imageSize?: '1K' | '2K';
   /** Output MIME type: "image/jpeg" or "image/png" */
   outputMimeType?: 'image/jpeg' | 'image/png';
   /** Whether to include RAI (Responsible AI) filter reasons */
@@ -86,19 +88,23 @@ export async function generateImage(
   const {
     numberOfImages = 1,
     aspectRatio = '9:16',
+    imageSize = '1K',
     outputMimeType = 'image/jpeg',
     includeRaiReason = false,
     personGeneration = PersonGeneration.ALLOW_ADULT,
   } = options;
 
   try {
-    // Note: For gemini-3-pro-image-preview, we use generateContent instead of generateImages
-    // as it's a Gemini model that can generate images, not an Imagen model
+    // Use gemini-3-pro-image-preview with proper Imagen configuration
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview', // Nano Banana Pro
+      model: 'gemini-3-pro-image-preview',
       contents: prompt,
       config: {
-        maxOutputTokens: 4096,
+        responseModalities: ['IMAGE'],
+        imageConfig: {
+          aspectRatio: aspectRatio,
+          imageSize: imageSize,
+        },
       },
     });
 
@@ -142,7 +148,7 @@ export async function generateImage(
         prompt,
         config: {
           numberOfImages,
-          aspectRatio,
+          aspectRatio, // Only "3:4" or "9:16" are allowed
           outputMimeType,
           includeRaiReason,
           personGeneration,
