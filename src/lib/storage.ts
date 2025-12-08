@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
@@ -44,6 +45,44 @@ export async function uploadImage(
     return publicUrl;
   } catch (error) {
     console.error("Error uploading to S3:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a presigned URL for direct client-side upload to S3
+ * @param filename - The S3 key/path for the file
+ * @param contentType - The MIME type of the file
+ * @param expiresIn - URL expiration time in seconds (default: 300 = 5 minutes)
+ * @returns Presigned URL and the final public URL
+ */
+export async function getPresignedUploadUrl(
+  filename: string,
+  contentType: string,
+  expiresIn: number = 300
+): Promise<{ uploadUrl: string; publicUrl: string }> {
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: filename,
+    ContentType: contentType,
+  });
+
+  try {
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn });
+
+    // Construct the public URL (same logic as uploadImage)
+    let publicUrl: string;
+    if (process.env.AWS_PUBLIC_URL) {
+      publicUrl = `${process.env.AWS_PUBLIC_URL}/${filename}`;
+    } else {
+      const region = process.env.AWS_REGION || "us-east-1";
+      const bucket = process.env.AWS_BUCKET_NAME;
+      publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${filename}`;
+    }
+
+    return { uploadUrl, publicUrl };
+  } catch (error) {
+    console.error("Error generating presigned URL:", error);
     throw error;
   }
 }
