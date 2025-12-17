@@ -14,12 +14,6 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.947.0
         version: 3.947.0
-      '@better-upload/client':
-        specifier: ^3.0.6
-        version: 3.0.6(react@19.2.0)
-      '@better-upload/server':
-        specifier: ^3.0.6
-        version: 3.0.6
       '@google/genai':
         specifier: ^1.31.0
         version: 1.31.0
@@ -51,11 +45,11 @@ importers:
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@trigger.dev/react-hooks':
-        specifier: 4.2.0
-        version: 4.2.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+        specifier: 4.3.0
+        version: 4.3.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       '@trigger.dev/sdk':
-        specifier: 4.2.0
-        version: 4.2.0(typescript@5.9.3)(zod@4.1.13)
+        specifier: 4.3.0
+        version: 4.3.0(typescript@5.9.3)(zod@4.1.13)
       better-auth:
         specifier: ^1.4.5
         version: 1.4.5(next@16.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -100,8 +94,8 @@ importers:
         specifier: ^4
         version: 4.1.17
       '@trigger.dev/build':
-        specifier: 4.2.0
-        version: 4.2.0(typescript@5.9.3)
+        specifier: 4.3.0
+        version: 4.3.0(typescript@5.9.3)
       '@types/node':
         specifier: ^20
         version: 20.19.25
@@ -408,14 +402,6 @@ packages:
 
   '@better-fetch/fetch@1.1.18':
     resolution: {integrity: sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA==}
-
-  '@better-upload/client@3.0.6':
-    resolution: {integrity: sha512-La2gx8LneWbxNUVyr48QYMcKJKB4MRbT7DBpoRp4agwGu2SHfBNZ4gOUPaQ4Lhpc4d9H3ysO/TVtUiT9g+iz/A==}
-    peerDependencies:
-      react: '*'
-
-  '@better-upload/server@3.0.6':
-    resolution: {integrity: sha512-25XaW86pxEzJXUSzSKxsjQUHARN5S+bvplF6qkGSN0cCEzkGfS/R9RYtIaJ4iDAuKJopUfbhgOmaZy978WNhKA==}
 
   '@bugsnag/cuid@3.2.1':
     resolution: {integrity: sha512-zpvN8xQ5rdRWakMd/BcVkdn2F8HKlDSbM3l7duueK590WmI1T0ObTLc1V/1e55r14WNjPd5AJTYX4yPEAFVi+Q==}
@@ -2073,23 +2059,23 @@ packages:
   '@tailwindcss/postcss@4.1.17':
     resolution: {integrity: sha512-+nKl9N9mN5uJ+M7dBOOCzINw94MPstNR/GtIhz1fpZysxL/4a+No64jCBD6CPN+bIHWFx3KWuu8XJRrj/572Dw==}
 
-  '@trigger.dev/build@4.2.0':
-    resolution: {integrity: sha512-gCHVW2ZViIClkvnmJO0DQmnnXf2LesbU3HL4KLAVCYNUQa1mvBJK3RzHRZsrGDHYUKtRKtQ3A0oRu+V1w9/Y+g==}
+  '@trigger.dev/build@4.3.0':
+    resolution: {integrity: sha512-auqaEztb29rjD1x8/jbWIS682MNHW8kZWwmQprdJbVUa73GkNa4pjED1Iqc2VM+at0gQ5D5nRMubsIxzrMEZLQ==}
     engines: {node: '>=18.20.0'}
 
-  '@trigger.dev/core@4.2.0':
-    resolution: {integrity: sha512-VcgZF3n77Wwfr0gD7JqoLnC46uK5bPnu73WBRuQRRdNS8MYijuEh9TpsmJ9ndkC9Ji+m5YwsqwEnqZPA7UYhag==}
+  '@trigger.dev/core@4.3.0':
+    resolution: {integrity: sha512-mOavnsfCEgEES67Lnfbq9vMV+A2JAtCAoMVxNI7umpSXbbKOmsxdcKRG46/0rclqHKp9X5hk2aF3TlFhvgl/EQ==}
     engines: {node: '>=18.20.0'}
 
-  '@trigger.dev/react-hooks@4.2.0':
-    resolution: {integrity: sha512-Crgmtnp8ntcklcLv9l0f4mW6NiG/6z4LYCxrnB3sDviMR5lCNvQQ7fP1ASj7IihufEPkVG/m1405x4K8fPn0Yg==}
+  '@trigger.dev/react-hooks@4.3.0':
+    resolution: {integrity: sha512-XHD4+EH0/7WUVoOKJ0jr6hIdQbGvr7qT+08POrrEvG1wo1Wez/w7NbNAOpJ2HeflZvrvg22H+DSssxhDyBx0rw==}
     engines: {node: '>=18.20.0'}
     peerDependencies:
       react: ^18.0 || ^19.0 || ^19.0.0-rc
       react-dom: ^18.0 || ^19.0 || ^19.0.0-rc
 
-  '@trigger.dev/sdk@4.2.0':
-    resolution: {integrity: sha512-OoZIN63qW1Qxsi8QqncWVt45n7wym9ZRvJZxeC/Ly/nhcTHJarRJFRBtyNnPJUDXIW+nRZZFh/Tt3Np3URnCnw==}
+  '@trigger.dev/sdk@4.3.0':
+    resolution: {integrity: sha512-54wyCtXaumNfv1ou8PMGs7gb5+wNz94RjwznTWLoBAMhMmPsiqSTa6qxwjjWbpxAb/FWvasUnfbHxOmio2xdMg==}
     engines: {node: '>=18.20.0'}
     peerDependencies:
       ai: ^4.2.0 || ^5.0.0
@@ -2379,9 +2365,6 @@ packages:
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
-
-  aws4fetch@1.0.20:
-    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
 
   axe-core@4.11.0:
     resolution: {integrity: sha512-ilYanEU8vxxBexpJd8cWM4ElSQq4QctCLKih0TSfjIfCQTeyH/6zVrmIJfLPrKTKJRbiG+cfnZbQIjAlJmF1jQ==}
@@ -3018,10 +3001,6 @@ packages:
 
   fast-xml-parser@5.2.5:
     resolution: {integrity: sha512-pfX9uG9Ki0yekDHx2SiuRIyFdyAr1kMIMitPvb0YBo8SUfKvia7w7FIyd/l6av85pFYRhZscS75MwMnbvY+hcQ==}
-    hasBin: true
-
-  fast-xml-parser@5.3.2:
-    resolution: {integrity: sha512-n8v8b6p4Z1sMgqRmqLJm3awW4NX7NkaKPfb3uJIBTSH7Pdvufi3PQ3/lJLQrvxcMYl7JI2jnDO90siPEpD8JBA==}
     hasBin: true
 
   fastq@1.19.1:
@@ -5107,16 +5086,6 @@ snapshots:
 
   '@better-fetch/fetch@1.1.18': {}
 
-  '@better-upload/client@3.0.6(react@19.2.0)':
-    dependencies:
-      react: 19.2.0
-
-  '@better-upload/server@3.0.6':
-    dependencies:
-      aws4fetch: 1.0.20
-      fast-xml-parser: 5.3.2
-      zod: 4.1.13
-
   '@bugsnag/cuid@3.2.1': {}
 
   '@drizzle-team/brocli@0.10.2': {}
@@ -6588,10 +6557,10 @@ snapshots:
       postcss: 8.5.6
       tailwindcss: 4.1.17
 
-  '@trigger.dev/build@4.2.0(typescript@5.9.3)':
+  '@trigger.dev/build@4.3.0(typescript@5.9.3)':
     dependencies:
       '@prisma/config': 6.19.0
-      '@trigger.dev/core': 4.2.0(typescript@5.9.3)
+      '@trigger.dev/core': 4.3.0(typescript@5.9.3)
       mlly: 1.8.0
       pkg-types: 1.3.1
       resolve: 1.22.11
@@ -6604,7 +6573,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@trigger.dev/core@4.2.0(typescript@5.9.3)':
+  '@trigger.dev/core@4.3.0(typescript@5.9.3)':
     dependencies:
       '@bugsnag/cuid': 3.2.1
       '@electric-sql/client': 1.0.14
@@ -6645,9 +6614,9 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@trigger.dev/react-hooks@4.2.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)':
+  '@trigger.dev/react-hooks@4.3.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)':
     dependencies:
-      '@trigger.dev/core': 4.2.0(typescript@5.9.3)
+      '@trigger.dev/core': 4.3.0(typescript@5.9.3)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
       swr: 2.3.7(react@19.2.0)
@@ -6657,11 +6626,11 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@trigger.dev/sdk@4.2.0(typescript@5.9.3)(zod@4.1.13)':
+  '@trigger.dev/sdk@4.3.0(typescript@5.9.3)(zod@4.1.13)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.36.0
-      '@trigger.dev/core': 4.2.0(typescript@5.9.3)
+      '@trigger.dev/core': 4.3.0(typescript@5.9.3)
       chalk: 5.6.2
       cronstrue: 2.59.0
       debug: 4.4.3
@@ -6980,8 +6949,6 @@ snapshots:
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
-
-  aws4fetch@1.0.20: {}
 
   axe-core@4.11.0: {}
 
@@ -7744,10 +7711,6 @@ snapshots:
   fast-levenshtein@2.0.6: {}
 
   fast-xml-parser@5.2.5:
-    dependencies:
-      strnum: 2.1.1
-
-  fast-xml-parser@5.3.2:
     dependencies:
       strnum: 2.1.1
 

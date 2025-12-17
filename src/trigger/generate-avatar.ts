@@ -1,5 +1,5 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
-import { db } from "@/index";
+import { db } from "@/index"; 
 import { avatars, generations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateImage } from "@/lib/ai";
