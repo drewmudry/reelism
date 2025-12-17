@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -14,10 +17,24 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-export default function Page() {
+export default async function Page() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return redirect("/sign-in")
+  }
+
+  const user = session.user
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar user={{
+        name: user.name || "User",
+        email: user.email || "",
+        avatar: user.image || null,
+      }} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
