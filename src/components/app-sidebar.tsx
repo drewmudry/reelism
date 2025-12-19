@@ -61,7 +61,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <User className="h-4 w-4" />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">Affili8</span>
+            <span className="truncate font-semibold">Reelism</span>
           </div>
         </div>
       </SidebarHeader>

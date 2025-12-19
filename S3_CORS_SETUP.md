@@ -26,7 +26,7 @@ To enable direct browser uploads to S3, you need to configure CORS on your S3 bu
     ],
     "AllowedOrigins": [
       "http://localhost:3000",
-      "https://affili8.ai"
+      "https://reelism.io"
     ],
     "ExposeHeaders": [
       "ETag"
