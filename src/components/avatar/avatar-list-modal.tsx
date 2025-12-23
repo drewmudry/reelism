@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { X, Zap, Copy, Check, Wand2, Loader2, Sparkles, Video, Image } from "lucide-react"
+import { MediaModal } from "@/components/ui/media-modal"
+import { Zap, Wand2, Loader2, Sparkles, Video } from "lucide-react"
 import { generateAnimationFromAvatar } from "@/actions/generate-animation"
 
 interface Avatar {
@@ -25,8 +26,6 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
   const router = useRouter()
   const [isRemixing, setIsRemixing] = useState(false)
   const [remixInstructions, setRemixInstructions] = useState("")
-  const [hasCopied, setHasCopied] = useState(false)
-  const [hasCopiedImage, setHasCopiedImage] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [animePrompt, setAnimePrompt] = useState("")
   const [isGeneratingAnimation, setIsGeneratingAnimation] = useState(false)
@@ -40,17 +39,9 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
     setRemixInstructions("")
   }
 
-  const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(JSON.stringify(avatar.prompt))
-    setHasCopied(true)
-    setTimeout(() => setHasCopied(false), 2000)
-  }
-
-  const handleCopyImage = () => {
-    if (!avatar.imageUrl) return
-    navigator.clipboard.writeText(avatar.imageUrl)
-    setHasCopiedImage(true)
-    setTimeout(() => setHasCopiedImage(false), 2000)
+  const handleRemixClick = () => {
+    setIsAnimating(false) // Close animate if open
+    setIsRemixing(!isRemixing)
   }
 
   const handleAnimeClick = () => {
@@ -78,207 +69,161 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
     }
   }
 
-  return (
+  const sidePanel = (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
+      {/* Remix Panel */}
+      {isRemixing && (
+        <div className="w-[360px] mr-4 bg-card rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto max-h-[576px] animate-in slide-in-from-left-1/2 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Remix Avatar</h3>
+          </div>
 
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-        <div
-          className={`relative pointer-events-auto transition-all duration-500 ease-out w-full ${isRemixing || isAnimating ? "max-w-[700px]" : "max-w-[420px]"
-            }`}
-        >
-          <div className="flex gap-4">
-            {/* Main Modal */}
-            <div className="flex-shrink-0">
-              <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-96">
-                {avatar.imageUrl ? (
-                  <img
-                    src={avatar.imageUrl || "/placeholder.svg"}
-                    alt="Avatar"
-                    className="w-full h-auto aspect-[9/16] object-cover"
-                  />
-                ) : (
-                  <div className="w-full aspect-[9/16] flex flex-col items-center justify-center gap-3 text-zinc-500">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                    <p className="text-sm">Generating...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Remix Panel */}
-            {isRemixing && (
-              <div className="w-[360px] mr-4 bg-card rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto max-h-[576px] animate-in slide-in-from-left-1/2 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                  <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Remix Avatar</h3>
-                </div>
-
-                <div className="flex-1 flex flex-col gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                      What would you like to change?
-                    </label>
-                    <textarea
-                      value={remixInstructions}
-                      onChange={(e) => setRemixInstructions(e.target.value)}
-                      placeholder="e.g., change her shirt to a black spaghetti strap tank top, make her hair blonde, add sunglasses..."
-                      className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
-                      disabled={isGenerating}
-                    />
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                      Describe the changes you want to make to this avatar. The image will be used as a reference.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
-                  <Button
-                    onClick={handleRemixSubmit}
-                    disabled={isGenerating || !remixInstructions.trim()}
-                    className="w-full gap-2"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="h-4 w-4" />
-                        Generate Remix
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Animate Panel */}
-            {isAnimating && (
-              <div className="w-[360px] mr-4 bg-card rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto max-h-[576px] animate-in slide-in-from-left-1/2 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                  <Video className="h-4 w-4 text-blue-500" />
-                  <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Animate Avatar</h3>
-                </div>
-
-                <div className="flex-1 flex flex-col gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                      How would you like to animate this avatar?
-                    </label>
-                    <textarea
-                      value={animePrompt}
-                      onChange={(e) => setAnimePrompt(e.target.value)}
-                      placeholder="e.g., A gentle swaying motion, walking forward, waving hello..."
-                      className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
-                      disabled={isGeneratingAnimation}
-                    />
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                      Enter a prompt describing how you want to animate this avatar. The animation will be generated using the avatar image and your prompt.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsAnimating(false)
-                      setAnimePrompt("")
-                    }}
-                    disabled={isGeneratingAnimation}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleGenerateAnimation}
-                    disabled={!animePrompt.trim() || isGeneratingAnimation}
-                    className="flex-1 gap-2"
-                  >
-                    {isGeneratingAnimation ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Video className="h-4 w-4" />
-                        Generate Animation
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Control Buttons */}
-            <div className={`absolute top-0 flex flex-col gap-2 transition-all duration-500 ease-out ${isRemixing || isAnimating ? "-right-24" : "-right-20"
-              }`}>
-              <button
-                onClick={onClose}
-                className="h-10 w-10 flex items-center justify-center bg-card hover:bg-muted rounded-full text-foreground transition-colors shadow-lg border border-zinc-200 dark:border-zinc-800"
-                aria-label="Close modal"
-              >
-                <X size={20} />
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCopyPrompt}
-                  className="h-10 w-10 flex items-center justify-center bg-card hover:bg-muted rounded-full text-foreground transition-colors shadow-lg border border-zinc-200 dark:border-zinc-800"
-                  aria-label="Copy prompt"
-                  title="Copy Prompt"
-                >
-                  {hasCopied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
-                </button>
-
-                <button
-                  onClick={handleCopyImage}
-                  className="h-10 w-10 flex items-center justify-center bg-card hover:bg-muted rounded-full text-foreground transition-colors shadow-lg border border-zinc-200 dark:border-zinc-800"
-                  aria-label="Copy image URL"
-                  title="Copy Image URL"
-                  disabled={!avatar.imageUrl}
-                >
-                  {hasCopiedImage ? <Check size={18} className="text-green-500" /> : <Image size={18} />}
-                </button>
-              </div>
-
-              <button
-                onClick={() => setIsRemixing(!isRemixing)}
-                disabled={!avatar.imageUrl}
-                className={`h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border ${isRemixing
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                  : !avatar.imageUrl
-                    ? "bg-card text-foreground/50 border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50"
-                    : "bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
-                  }`}
-                aria-label="Remix content"
-                title={!avatar.imageUrl ? "Avatar must have an image to remix" : "Remix this avatar"}
-              >
-                <Zap size={18} />
-                <span className="text-xs hidden sm:inline">{isRemixing ? "Done" : "Remix"}</span>
-              </button>
-
-              <button
-                onClick={handleAnimeClick}
-                className={`h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border ${isAnimating
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                  : "bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
-                  }`}
-                aria-label="Animate avatar"
-                title="Animate this avatar"
-              >
-                <Video size={18} />
-                <span className="text-xs hidden sm:inline">{isAnimating ? "Done" : "Animate"}</span>
-              </button>
+          <div className="flex-1 flex flex-col gap-3">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                What would you like to change?
+              </label>
+              <textarea
+                value={remixInstructions}
+                onChange={(e) => setRemixInstructions(e.target.value)}
+                placeholder="e.g., change her shirt to a black spaghetti strap tank top, make her hair blonde, add sunglasses..."
+                className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
+                disabled={isGenerating}
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                Describe the changes you want to make to this avatar. The image will be used as a reference.
+              </p>
             </div>
           </div>
+
+          <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
+            <Button
+              onClick={handleRemixSubmit}
+              disabled={isGenerating || !remixInstructions.trim()}
+              className="w-full gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4" />
+                  Generate Remix
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Animate Panel */}
+      {isAnimating && (
+        <div className="w-[360px] mr-4 bg-card rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto max-h-[576px] animate-in slide-in-from-left-1/2 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <Video className="h-4 w-4 text-blue-500" />
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Animate Avatar</h3>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-3">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                How would you like to animate this avatar?
+              </label>
+              <textarea
+                value={animePrompt}
+                onChange={(e) => setAnimePrompt(e.target.value)}
+                placeholder="e.g., A gentle swaying motion, walking forward, waving hello..."
+                className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
+                disabled={isGeneratingAnimation}
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                Enter a prompt describing how you want to animate this avatar. The animation will be generated using the avatar image and your prompt.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAnimating(false)
+                setAnimePrompt("")
+              }}
+              disabled={isGeneratingAnimation}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerateAnimation}
+              disabled={!animePrompt.trim() || isGeneratingAnimation}
+              className="flex-1 gap-2"
+            >
+              {isGeneratingAnimation ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Video className="h-4 w-4" />
+                  Generate Animation
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
+  )
+
+  const controlButtons = (
+    <>
+      <button
+        onClick={handleRemixClick}
+        disabled={!avatar.imageUrl}
+        className={`h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border ${isRemixing
+          ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+          : !avatar.imageUrl
+            ? "bg-card text-foreground/50 border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50"
+            : "bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
+          }`}
+        aria-label="Remix content"
+        title={!avatar.imageUrl ? "Avatar must have an image to remix" : "Remix this avatar"}
+      >
+        <Zap size={18} />
+        <span className="text-xs hidden sm:inline">{isRemixing ? "Done" : "Remix"}</span>
+      </button>
+
+      <button
+        onClick={handleAnimeClick}
+        className={`h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border ${isAnimating
+          ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+          : "bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
+          }`}
+        aria-label="Animate avatar"
+        title="Animate this avatar"
+      >
+        <Video size={18} />
+        <span className="text-xs hidden sm:inline">{isAnimating ? "Done" : "Animate"}</span>
+      </button>
+    </>
+  )
+
+  return (
+    <MediaModal
+      mediaType="image"
+      mediaUrl={avatar.imageUrl}
+      isLoading={!avatar.imageUrl}
+      loadingText="Generating..."
+      onClose={onClose}
+      prompt={avatar.prompt}
+      sidePanel={sidePanel}
+      controlButtons={controlButtons}
+      isPanelOpen={isRemixing || isAnimating}
+    />
   )
 }

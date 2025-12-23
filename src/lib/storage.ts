@@ -1,9 +1,9 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
-//   endpoint: process.env.AWS_ENDPOINT, // Leave empty for real AWS, fill for R2/Supabase
+  //   endpoint: process.env.AWS_ENDPOINT, // Leave empty for real AWS, fill for R2/Supabase
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -28,10 +28,10 @@ export async function uploadImage(
 
   try {
     await s3Client.send(command);
-    
+
     // Construct the public URL
     let publicUrl: string;
-    
+
     if (process.env.AWS_PUBLIC_URL) {
       // Use custom public URL if provided (for CloudFront, custom domains, etc.)
       publicUrl = `${process.env.AWS_PUBLIC_URL}/${filename}`;
@@ -41,7 +41,7 @@ export async function uploadImage(
       const bucket = process.env.AWS_BUCKET_NAME;
       publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${filename}`;
     }
-    
+
     return publicUrl;
   } catch (error) {
     console.error("Error uploading to S3:", error);
@@ -104,10 +104,10 @@ export async function uploadVideo(
 
   try {
     await s3Client.send(command);
-    
+
     // Construct the public URL
     let publicUrl: string;
-    
+
     if (process.env.AWS_PUBLIC_URL) {
       // Use custom public URL if provided (for CloudFront, custom domains, etc.)
       publicUrl = `${process.env.AWS_PUBLIC_URL}/${filename}`;
@@ -117,10 +117,46 @@ export async function uploadVideo(
       const bucket = process.env.AWS_BUCKET_NAME;
       publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${filename}`;
     }
-    
+
     return publicUrl;
   } catch (error) {
     console.error("Error uploading video to S3:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a presigned URL for downloading a file from S3
+ * @param publicUrl - The public URL of the file (to extract the S3 key)
+ * @param expiresIn - URL expiration time in seconds (default: 300 = 5 minutes)
+ * @returns Presigned download URL
+ */
+export async function getPresignedDownloadUrl(
+  publicUrl: string,
+  expiresIn: number = 300
+): Promise<string> {
+  // Extract the S3 key from the public URL
+  let key: string;
+
+  if (process.env.AWS_PUBLIC_URL && publicUrl.startsWith(process.env.AWS_PUBLIC_URL)) {
+    // Custom public URL format: ${AWS_PUBLIC_URL}/${key}
+    key = publicUrl.replace(`${process.env.AWS_PUBLIC_URL}/`, "");
+  } else {
+    // Default AWS S3 URL format: https://${bucket}.s3.${region}.amazonaws.com/${key}
+    const urlParts = new URL(publicUrl);
+    key = urlParts.pathname.substring(1); // Remove leading slash
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+  });
+
+  try {
+    const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn });
+    return downloadUrl;
+  } catch (error) {
+    console.error("Error generating presigned download URL:", error);
     throw error;
   }
 }

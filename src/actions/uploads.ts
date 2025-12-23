@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { db } from "@/index";
 import { uploads } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { getPresignedUploadUrl } from "@/lib/storage";
+import { getPresignedUploadUrl, getPresignedDownloadUrl } from "@/lib/storage";
 
 // 1. Get Presigned URL for direct S3 upload
 export async function getUploadPresignedUrl(
@@ -111,6 +111,14 @@ export async function deleteUpload(uploadId: string) {
       eq(uploads.id, uploadId),
       eq(uploads.userId, session.user.id)
     ));
-    
+
   return { success: true };
+}
+
+// 6. Get Presigned Download URL
+export async function getDownloadUrl(publicUrl: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Not authenticated");
+
+  return await getPresignedDownloadUrl(publicUrl);
 }
