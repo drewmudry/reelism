@@ -42,12 +42,12 @@ export function CuratedAvatarList({
     setSelectedAvatar(avatar);
   }
 
-  async function handleRemix(avatarId: string, instructions: string, productImageUrl?: string) {
+  async function handleRemix(avatarId: string, instructions: string, productImageUrls?: string[]) {
     if (!instructions.trim()) return;
 
     setIsGenerating(true);
     try {
-      await remixAvatar(avatarId, instructions.trim(), productImageUrl);
+      await remixAvatar(avatarId, instructions.trim(), productImageUrls);
       // Close modal, switch to all tab, and refresh
       setSelectedAvatar(null);
       if (onSwitchToAllTab) {

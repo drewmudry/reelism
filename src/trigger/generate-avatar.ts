@@ -231,11 +231,11 @@ export const generateAvatarTask = task({
 export const remixAvatarTask = task({
   id: "remix-avatar",
   maxDuration: 600, // 10 minutes
-  run: async (payload: { generationId: string; sourceImageUrl: string; instructions: string; productImageUrl?: string }) => {
+  run: async (payload: { generationId: string; sourceImageUrl: string; instructions: string; productImageUrls?: string[] }) => {
     logger.log("Starting avatar remix", {
       generationId: payload.generationId,
       instructions: payload.instructions,
-      productImageUrl: payload.productImageUrl
+      productImageCount: payload.productImageUrls?.length || 0
     });
 
     try {
@@ -287,7 +287,7 @@ export const remixAvatarTask = task({
       logger.log("Generating remix image from reference...", {
         sourceImageUrl: payload.sourceImageUrl,
         instructions: payload.instructions,
-        hasProductImage: !!payload.productImageUrl
+        productImageCount: payload.productImageUrls?.length || 0
       });
 
       const images = await generateImageFromReference(
@@ -299,7 +299,7 @@ export const remixAvatarTask = task({
           imageSize: "1K",
           outputMimeType: "image/jpeg",
         },
-        payload.productImageUrl
+        payload.productImageUrls
       );
 
       if (!images || images.length === 0) {

@@ -74,19 +74,16 @@ export const generateAnimationTask = task({
         ? generation.prompt
         : promptData.prompt || JSON.stringify(generation.prompt);
 
-      const productImageUrl = promptData.productImageUrl;
+      const productImageUrls = promptData.productImageUrls || [];
 
       logger.log("Generating video...", {
         promptLength: promptText.length,
         avatarImageUrl: avatar.imageUrl,
-        hasProductImage: !!productImageUrl
+        productImageCount: productImageUrls.length
       });
 
-      // If product image is present, pass it as a reference image
-      const referenceImages: string[] = [];
-      if (productImageUrl) {
-        referenceImages.push(productImageUrl);
-      }
+      // Use product images as reference images
+      const referenceImages: string[] = [...productImageUrls];
 
       // Veo 3.1 now accepts reference images, so we pass it in config.
       // We can also keep the prompt descriptive.

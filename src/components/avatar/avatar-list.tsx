@@ -38,11 +38,11 @@ export function AvatarList() {
     fetchAvatars()
   }, [])
 
-  const handleRemix = async (avatarId: string, instructions: string) => {
+  const handleRemix = async (avatarId: string, instructions: string, productImageUrls?: string[]) => {
     if (!instructions.trim()) return;
     setIsGenerating(true);
     try {
-      await remixAvatar(avatarId, instructions);
+      await remixAvatar(avatarId, instructions, productImageUrls);
       // Refresh the avatars list to show the new remix
       const data = await getAvatars();
       setAvatars(data);

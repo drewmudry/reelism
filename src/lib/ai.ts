@@ -1,9 +1,53 @@
 import { GoogleGenAI, PersonGeneration } from '@google/genai';
+import sharp from 'sharp';
 
 // Initialize the Google GenAI client
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
+
+/**
+ * Supported MIME types for Google GenAI API
+ */
+const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png'];
+
+/**
+ * Converts an image buffer to JPEG if it's in an unsupported format
+ * @param imageBuffer - The image buffer to convert
+ * @param mimeType - The original MIME type of the image
+ * @returns Promise resolving to converted image buffer and MIME type
+ */
+async function normalizeImageFormat(
+  imageBuffer: ArrayBuffer,
+  mimeType: string
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  // If the format is already supported, return as-is
+  if (SUPPORTED_MIME_TYPES.includes(mimeType)) {
+    return {
+      buffer: Buffer.from(imageBuffer),
+      mimeType,
+    };
+  }
+
+  // Convert unsupported formats (like AVIF) to JPEG
+  try {
+    const convertedBuffer = await sharp(Buffer.from(imageBuffer))
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    return {
+      buffer: convertedBuffer,
+      mimeType: 'image/jpeg',
+    };
+  } catch (error) {
+    console.warn(`Failed to convert image from ${mimeType} to JPEG, using original:`, error);
+    // Fallback to original if conversion fails
+    return {
+      buffer: Buffer.from(imageBuffer),
+      mimeType: 'image/jpeg', // Still set to JPEG as fallback
+    };
+  }
+}
 
 /**
  * Configuration options for image generation
@@ -204,7 +248,7 @@ export async function generateImageFromReference(
   referenceImageUrl: string,
   instructions: string,
   options: ImageGenerationOptions = {},
-  productImageUrl?: string
+  productImageUrls?: string[]
 ): Promise<ImageGenerationResponse[]> {
   const {
     numberOfImages = 1,
@@ -223,39 +267,65 @@ export async function generateImageFromReference(
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
-    const imageBytes = Buffer.from(imageBuffer).toString('base64');
-    const imageMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const originalMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    
+    // Normalize image format (convert AVIF and other unsupported formats to JPEG)
+    const { buffer: normalizedBuffer, mimeType: normalizedMimeType } = await normalizeImageFormat(
+      imageBuffer,
+      originalMimeType
+    );
+    
+    const imageBytes = normalizedBuffer.toString('base64');
 
     // Prepare prompt parts
     const parts: any[] = [
       {
         inlineData: {
           data: imageBytes,
-          mimeType: imageMimeType,
+          mimeType: normalizedMimeType,
         },
       },
     ];
 
     let finalPrompt = `Based on this reference image, generate a new image with the following modifications: ${instructions}. Keep everything else the same, only apply the requested changes.`;
 
-    // Fetch and add product image if provided
-    if (productImageUrl) {
-      const productResponse = await fetch(productImageUrl);
-      if (productResponse.ok) {
-        const productBuffer = await productResponse.arrayBuffer();
-        const productBytes = Buffer.from(productBuffer).toString('base64');
-        const productMimeType = productResponse.headers.get('content-type') || 'image/jpeg';
+    // Fetch and add product images if provided
+    if (productImageUrls && productImageUrls.length > 0) {
+      let imageIndex = 2;
+      for (const productImageUrl of productImageUrls) {
+        try {
+          const productResponse = await fetch(productImageUrl);
+          if (productResponse.ok) {
+            const productBuffer = await productResponse.arrayBuffer();
+            const originalProductMimeType = productResponse.headers.get('content-type') || 'image/jpeg';
+            
+            // Normalize image format (convert AVIF and other unsupported formats to JPEG)
+            const { buffer: normalizedProductBuffer, mimeType: normalizedProductMimeType } = await normalizeImageFormat(
+              productBuffer,
+              originalProductMimeType
+            );
+            
+            const productBytes = normalizedProductBuffer.toString('base64');
 
-        parts.push({
-          inlineData: {
-            data: productBytes,
-            mimeType: productMimeType,
-          },
-        });
+            parts.push({
+              inlineData: {
+                data: productBytes,
+                mimeType: normalizedProductMimeType,
+              },
+            });
+            imageIndex++;
+          } else {
+            console.warn(`Failed to fetch product image: ${productImageUrl} - ${productResponse.statusText}`);
+          }
+        } catch (error) {
+          console.warn(`Error fetching product image: ${productImageUrl}`, error);
+        }
+      }
 
+      if (productImageUrls.length === 1) {
         finalPrompt += ` Use the second image as a reference for the product to include/wear.`;
-      } else {
-        console.warn(`Failed to fetch product image: ${productResponse.statusText}`);
+      } else if (productImageUrls.length > 1) {
+        finalPrompt += ` Use the additional images as references for the products to include/wear.`;
       }
     }
 
@@ -582,9 +652,17 @@ export async function generateVideo(
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
+    const originalMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    
+    // Normalize image format (convert AVIF and other unsupported formats to JPEG)
+    const { buffer: normalizedBuffer, mimeType: normalizedMimeType } = await normalizeImageFormat(
+      imageBuffer,
+      originalMimeType
+    );
+    
     // Convert to base64 string - the API expects imageBytes to be a string, not a Buffer
-    const imageBytes = Buffer.from(imageBuffer).toString('base64');
-    const imageMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const imageBytes = normalizedBuffer.toString('base64');
+    const imageMimeType = normalizedMimeType;
 
     // Add system instruction to disable sound/voice generation
     // Prepend to the prompt to ensure it's followed
@@ -609,13 +687,20 @@ export async function generateVideo(
           if (!refResponse.ok) return null;
 
           const refBuffer = await refResponse.arrayBuffer();
-          const refBytes = Buffer.from(refBuffer).toString('base64');
-          const refMimeType = refResponse.headers.get('content-type') || 'image/jpeg';
+          const originalRefMimeType = refResponse.headers.get('content-type') || 'image/jpeg';
+          
+          // Normalize image format (convert AVIF and other unsupported formats to JPEG)
+          const { buffer: normalizedRefBuffer, mimeType: normalizedRefMimeType } = await normalizeImageFormat(
+            refBuffer,
+            originalRefMimeType
+          );
+          
+          const refBytes = normalizedRefBuffer.toString('base64');
 
           return {
             image: {
               imageBytes: refBytes,
-              mimeType: refMimeType,
+              mimeType: normalizedRefMimeType,
             },
             referenceType: "ASSET", // As per Veo docs
           };

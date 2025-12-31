@@ -18,7 +18,7 @@ interface Avatar {
 interface AvatarListModalProps {
   avatar: Avatar
   onClose: () => void
-  onRemix: (avatarId: string, instructions: string, productImageUrl?: string) => Promise<void>
+  onRemix: (avatarId: string, instructions: string, productImageUrls?: string[]) => Promise<void>
   isGenerating?: boolean
 }
 
@@ -33,6 +33,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
   // Product selection state
   const [products, setProducts] = useState<any[]>([])
   const [selectedProductId, setSelectedProductId] = useState<string>("")
+  const [selectedProductImageUrls, setSelectedProductImageUrls] = useState<string[]>([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
 
   // Fetch products when opening panels
@@ -56,20 +57,16 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
       return
     }
 
-    // Find selected product image URL if any
-    let productImageUrl = undefined
-    if (selectedProductId) {
-      const product = products.find(p => p.id === selectedProductId)
-      // Use the first image of the product if available
-      if (product && product.images && product.images.length > 0) {
-        productImageUrl = product.images[0]
-      }
-    }
+    // Use selected product image URLs (or empty array if none selected)
+    const productImageUrls = selectedProductImageUrls.length > 0 
+      ? selectedProductImageUrls 
+      : undefined
 
-    await onRemix(avatar.id, remixInstructions.trim(), productImageUrl)
+    await onRemix(avatar.id, remixInstructions.trim(), productImageUrls)
     setIsRemixing(false)
     setRemixInstructions("")
     setSelectedProductId("")
+    setSelectedProductImageUrls([])
   }
 
   const handleRemixClick = () => {
@@ -95,22 +92,18 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
 
     setIsGeneratingAnimation(true)
     try {
-      // Find selected product image URL if any
-      let productImageUrl = undefined
-      if (selectedProductId) {
-        const product = products.find(p => p.id === selectedProductId)
-        // Use the first image of the product if available
-        if (product && product.images && product.images.length > 0) {
-          productImageUrl = product.images[0]
-        }
-      }
+      // Use selected product image URLs (or empty array if none selected)
+      const productImageUrls = selectedProductImageUrls.length > 0 
+        ? selectedProductImageUrls 
+        : undefined
 
-      await generateAnimationFromAvatar(avatar.id, animePrompt, productImageUrl)
+      await generateAnimationFromAvatar(avatar.id, animePrompt, productImageUrls)
       // Close modals and navigate to animations page
       setIsAnimating(false)
       onClose() // Close the avatar modal too
       setAnimePrompt("")
       setSelectedProductId("")
+      setSelectedProductImageUrls([])
       router.push("/app/animations")
     } catch (error) {
       console.error("Failed to generate animation:", error)
@@ -119,6 +112,25 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
     }
   }
 
+  const handleProductSelect = (productId: string) => {
+    setSelectedProductId(productId)
+    // Reset selected images when product changes
+    setSelectedProductImageUrls([])
+  }
+
+  const handleImageToggle = (imageUrl: string) => {
+    setSelectedProductImageUrls(prev => {
+      if (prev.includes(imageUrl)) {
+        return prev.filter(url => url !== imageUrl)
+      } else {
+        return [...prev, imageUrl]
+      }
+    })
+  }
+
+  const selectedProduct = products.find(p => p.id === selectedProductId)
+  const productImages = selectedProduct?.images || []
+
   const productSelector = (
     <div className="mb-4">
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
@@ -126,7 +138,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
       </label>
       <select
         value={selectedProductId}
-        onChange={(e) => setSelectedProductId(e.target.value)}
+        onChange={(e) => handleProductSelect(e.target.value)}
         disabled={isGenerating || isGeneratingAnimation || isLoadingProducts}
         className="w-full px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 appearance-none"
       >
@@ -138,14 +150,67 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
         ))}
       </select>
       {selectedProductId && (
-        <div className="mt-2 text-xs text-zinc-500 flex items-center gap-2">
-          <span>Selected: {products.find(p => p.id === selectedProductId)?.title}</span>
-          <button
-            onClick={() => setSelectedProductId("")}
-            className="text-red-500 hover:text-red-600"
-          >
-            Remove
-          </button>
+        <div className="mt-3">
+          <div className="text-xs text-zinc-500 flex items-center gap-2 mb-2">
+            <span>Selected: {selectedProduct?.title}</span>
+            <button
+              onClick={() => {
+                setSelectedProductId("")
+                setSelectedProductImageUrls([])
+              }}
+              className="text-red-500 hover:text-red-600"
+            >
+              Remove
+            </button>
+          </div>
+          {productImages.length > 0 && (
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Select images to use ({selectedProductImageUrls.length} selected)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {productImages.map((imageUrl: string, index: number) => {
+                  const isSelected = selectedProductImageUrls.includes(imageUrl)
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleImageToggle(imageUrl)}
+                      className={`relative cursor-pointer rounded-md overflow-hidden border-2 transition-all ${
+                        isSelected
+                          ? "border-blue-500 ring-2 ring-blue-500/20"
+                          : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                      }`}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`Product image ${index + 1}`}
+                        className="w-full h-20 object-cover"
+                      />
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                          <div className="bg-blue-500 rounded-full p-1">
+                            <svg
+                              className="w-4 h-4 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -238,6 +303,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
                 setIsAnimating(false)
                 setAnimePrompt("")
                 setSelectedProductId("")
+                setSelectedProductImageUrls([])
               }}
               disabled={isGeneratingAnimation}
               className="flex-1"

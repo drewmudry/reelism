@@ -10,7 +10,7 @@ import { generateAnimationTask } from "@/trigger/generate-animation";
 export async function generateAnimationFromAvatar(
   avatarId: string,
   prompt: string,
-  productImageUrl?: string
+  productImageUrls?: string[]
 ) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -42,7 +42,7 @@ export async function generateAnimationFromAvatar(
       .insert(generations)
       .values({
         userId: session.user.id,
-        prompt: { prompt, productImageUrl },
+        prompt: { prompt, productImageUrls },
         status: "pending",
         triggerJobId: null,
       })
