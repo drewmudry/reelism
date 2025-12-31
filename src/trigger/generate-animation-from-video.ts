@@ -5,11 +5,13 @@ import { eq } from "drizzle-orm";
 import { generateVideo } from "@/lib/ai";
 import { uploadVideo } from "@/lib/storage";
 
-export const generateAnimationTask = task({
-  id: "generate-animation",
-  maxDuration: 1200, // 20 minutes (video generation can take longer)
-  run: async (payload: { generationId: string }) => {
-    logger.log("Starting animation generation", { generationId: payload.generationId });
+export const generateAnimationFromVideoTask = task({
+  id: "generate-animation-from-video",
+  maxDuration: 1200, // 20 minutes
+  run: async (payload: { generationId: string; avatarImageUrl: string }) => {
+    logger.log("Starting animation generation from video", {
+      generationId: payload.generationId,
+    });
 
     try {
       // Fetch the generation record
@@ -45,7 +47,6 @@ export const generateAnimationTask = task({
 
       if (animation.videoUrl) {
         logger.log("Animation already has a video URL", { animationId: animation.id });
-        // Update generation status to completed
         await db
           .update(generations)
           .set({
@@ -56,32 +57,24 @@ export const generateAnimationTask = task({
         return { success: true, videoUrl: animation.videoUrl };
       }
 
-      // Get the avatar image URL
-      const { avatars } = await import("@/db/schema");
-      const [avatar] = await db
-        .select()
-        .from(avatars)
-        .where(eq(avatars.id, animation.avatarId))
-        .limit(1);
-
-      if (!avatar || !avatar.imageUrl) {
-        throw new Error("Avatar image not found");
-      }
-
-      // Extract prompt text from generation
+      // Extract prompt and product images from generation
       const promptData = generation.prompt as any;
       const promptText = typeof generation.prompt === "string"
         ? generation.prompt
         : promptData.prompt || JSON.stringify(generation.prompt);
 
-      logger.log("Generating video...", {
+      const productImageUrls = promptData.productImageUrls || [];
+
+      logger.log("Generating video with products...", {
         promptLength: promptText.length,
-        avatarImageUrl: avatar.imageUrl,
+        avatarImageUrl: payload.avatarImageUrl,
+        productImageCount: productImageUrls.length,
       });
 
-      // Avatar animations use image parameter (supports 9:16)
-      // Products cannot be added to avatar animations (Veo limitation)
-      const video = await generateVideo(promptText, avatar.imageUrl, {});
+      // Generate video with avatar + products using referenceImages (requires 16:9)
+      const video = await generateVideo(promptText, payload.avatarImageUrl, {
+        referenceImages: productImageUrls,
+      });
 
       logger.log("Video generated successfully");
 
@@ -114,7 +107,7 @@ export const generateAnimationTask = task({
         })
         .where(eq(generations.id, payload.generationId));
 
-      logger.log("Animation generation completed", {
+      logger.log("Animation generation from video completed", {
         generationId: payload.generationId,
         animationId: animation.id,
         videoUrl
@@ -138,7 +131,7 @@ export const generateAnimationTask = task({
         logger.error("Failed to update generation status to failed", { error: updateError });
       }
 
-      logger.error("Animation generation failed", {
+      logger.error("Animation generation from video failed", {
         generationId: payload.generationId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -146,3 +139,4 @@ export const generateAnimationTask = task({
     }
   },
 });
+

@@ -606,10 +606,10 @@ export async function* generateTextProStream(
  */
 export interface VideoGenerationOptions {
   /** 
-   * Reference image(s) to guide the video generation (base64 encoded)
-   * NOTE: This is currently unused. The avatar image is passed via the `image` parameter
-   * instead of `referenceImages` because `referenceImages` only supports 16:9 aspect ratio.
-   * Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request.
+   * Product image URL(s) to include as reference images (max 3 total including avatar)
+   * When provided, the avatar + products are passed as referenceImages in config (requires 16:9 aspect ratio)
+   * When not provided, the avatar is passed via the image parameter (supports 9:16)
+   * Veo 3.1 supports up to 3 reference images with reference_type "asset"
    */
   referenceImages?: string[];
   /** Duration of the video in seconds */
@@ -686,24 +686,62 @@ export async function generateVideo(
       finalPrompt = `A silent video with no audio. ${prompt}`;
     }
 
-    // 3. Execute Generation
-    // IMPORTANT: Use the `image` parameter instead of `referenceImages` in config
-    // because `referenceImages` only supports 16:9 aspect ratio, but we need 9:16
-    // The `image` parameter works for image-to-video without aspect ratio restrictions
-    // 
-    // Note: Veo 3.1 preview does NOT support mixing avatar + product in same request
-    // So we only pass the avatar image here, no products
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-generate-preview',
-      prompt: finalPrompt,
-      image: {
-        imageBytes: avatarData.bytes,
-        mimeType: avatarData.mimeType,
-      },
-      config: {
-        aspectRatio: '9:16',
-      },
-    });
+    // 3. Determine generation approach based on whether products are provided
+    // Veo 3.1 supports up to 3 reference images with reference_type "asset"
+    // IMPORTANT: referenceImages in config only supports 16:9 aspect ratio
+    // The image parameter supports any aspect ratio (including 9:16)
+    const hasProducts = options.referenceImages && options.referenceImages.length > 0;
+
+    let operation;
+    if (hasProducts) {
+      // When products are provided, use referenceImages in config (requires 16:9)
+      // Include avatar + products as reference images (max 3 total)
+      const referenceImages: any[] = [
+        {
+          image: {
+            imageBytes: avatarData.bytes,
+            mimeType: avatarData.mimeType,
+          },
+          referenceType: VideoGenerationReferenceType.ASSET,
+        }
+      ];
+
+      // Add product images (limit to remaining slots, max 3 total)
+      const productImageUrls = options.referenceImages || [];
+      const maxProducts = Math.min(2, productImageUrls.length); // Avatar takes 1 slot, so max 2 more
+      for (let i = 0; i < maxProducts; i++) {
+        const productData = await fetchAndNormalize(productImageUrls[i]);
+        referenceImages.push({
+          image: {
+            imageBytes: productData.bytes,
+            mimeType: productData.mimeType,
+          },
+          referenceType: VideoGenerationReferenceType.ASSET,
+        });
+      }
+
+      operation = await ai.models.generateVideos({
+        model: 'veo-3.1-generate-preview',
+        prompt: finalPrompt,
+        config: {
+          aspectRatio: '16:9', // Required when using referenceImages
+          referenceImages: referenceImages,
+        },
+      });
+    } else {
+      // When no products, use image parameter (supports 9:16)
+      operation = await ai.models.generateVideos({
+        model: 'veo-3.1-generate-preview',
+        prompt: finalPrompt,
+        image: {
+          imageBytes: avatarData.bytes,
+          mimeType: avatarData.mimeType,
+        },
+        config: {
+          aspectRatio: '9:16',
+        },
+      });
+    }
 
     // 6. Poll the operation status until the video is ready
     const maxAttempts = 60; // 10 minutes max (60 * 10 seconds)

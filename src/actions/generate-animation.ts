@@ -37,7 +37,6 @@ export async function generateAnimationFromAvatar(
     }
 
     // Create generation record
-    // Note: Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request
     const [generation] = await db
       .insert(generations)
       .values({

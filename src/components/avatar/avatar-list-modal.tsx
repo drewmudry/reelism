@@ -89,8 +89,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
 
     setIsGeneratingAnimation(true)
     try {
-      // Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request
-      // So we don't pass any product images for animation generation
+      // Avatar animations cannot include products (Veo limitation: cannot mix avatar + products)
       await generateAnimationFromAvatar(avatar.id, animePrompt)
       // Close modals and navigate to animations page
       setIsAnimating(false)
@@ -160,19 +159,27 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
           {productImages.length > 0 && (
             <div className="mt-2">
               <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                Select images to use ({selectedProductImageUrls.length} selected)
+                Select images to use ({selectedProductImageUrls.length}/3 selected)
               </label>
+              {selectedProductImageUrls.length >= 3 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                  Maximum 3 product images can be used for video generation.
+                </p>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 {productImages.map((imageUrl: string, index: number) => {
                   const isSelected = selectedProductImageUrls.includes(imageUrl)
+                  const isDisabled = !isSelected && selectedProductImageUrls.length >= 3
                   return (
                     <div
                       key={index}
-                      onClick={() => handleImageToggle(imageUrl)}
-                      className={`relative cursor-pointer rounded-md overflow-hidden border-2 transition-all ${
+                      onClick={() => !isDisabled && handleImageToggle(imageUrl)}
+                      className={`relative rounded-md overflow-hidden border-2 transition-all ${
                         isSelected
-                          ? "border-blue-500 ring-2 ring-blue-500/20"
-                          : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                          ? "border-blue-500 ring-2 ring-blue-500/20 cursor-pointer"
+                          : isDisabled
+                            ? "border-zinc-200 dark:border-zinc-800 cursor-not-allowed opacity-50"
+                            : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer"
                       }`}
                     >
                       <img
@@ -285,7 +292,6 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-4">
                 Enter a prompt describing how you want to animate this avatar. The animation will be generated using the avatar image and your prompt.
               </p>
-
             </div>
           </div>
 
