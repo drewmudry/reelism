@@ -1,5 +1,5 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
-import { db } from "@/index"; 
+import { db } from "@/index";
 import { avatars, generations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateImage, generateImageFromReference } from "@/lib/ai";
@@ -23,7 +23,7 @@ function promptToText(prompt: any): string {
   if (prompt.image_generation) {
     const imgGen = prompt.image_generation;
     let description = "";
-    
+
     if (imgGen.subject) {
       if (imgGen.subject.pose?.description) {
         description += imgGen.subject.pose.description + ". ";
@@ -43,7 +43,7 @@ function promptToText(prompt: any): string {
         }
       }
     }
-    
+
     if (imgGen.environment) {
       if (imgGen.environment.setting) {
         description += `Setting: ${imgGen.environment.setting}. `;
@@ -52,11 +52,11 @@ function promptToText(prompt: any): string {
         description += `Lighting: ${imgGen.environment.lighting.type || imgGen.environment.lighting.tone}. `;
       }
     }
-    
+
     if (imgGen.aesthetic) {
       description += `Style: ${imgGen.aesthetic.style || imgGen.aesthetic.mood}. `;
     }
-    
+
     return description.trim() || JSON.stringify(prompt);
   }
 
@@ -231,10 +231,11 @@ export const generateAvatarTask = task({
 export const remixAvatarTask = task({
   id: "remix-avatar",
   maxDuration: 600, // 10 minutes
-  run: async (payload: { generationId: string; sourceImageUrl: string; instructions: string }) => {
-    logger.log("Starting avatar remix", { 
+  run: async (payload: { generationId: string; sourceImageUrl: string; instructions: string; productImageUrl?: string }) => {
+    logger.log("Starting avatar remix", {
       generationId: payload.generationId,
-      instructions: payload.instructions 
+      instructions: payload.instructions,
+      productImageUrl: payload.productImageUrl
     });
 
     try {
@@ -283,11 +284,12 @@ export const remixAvatarTask = task({
       }
 
       // Generate image from reference using image-to-image generation
-      logger.log("Generating remix image from reference...", { 
+      logger.log("Generating remix image from reference...", {
         sourceImageUrl: payload.sourceImageUrl,
-        instructions: payload.instructions 
+        instructions: payload.instructions,
+        hasProductImage: !!payload.productImageUrl
       });
-      
+
       const images = await generateImageFromReference(
         payload.sourceImageUrl,
         payload.instructions,
@@ -296,7 +298,8 @@ export const remixAvatarTask = task({
           aspectRatio: "9:16", // Vertical aspect ratio
           imageSize: "1K",
           outputMimeType: "image/jpeg",
-        }
+        },
+        payload.productImageUrl
       );
 
       if (!images || images.length === 0) {
@@ -335,10 +338,10 @@ export const remixAvatarTask = task({
         })
         .where(eq(generations.id, payload.generationId));
 
-      logger.log("Remix completed", { 
-        generationId: payload.generationId, 
-        avatarId: avatar.id, 
-        imageUrl 
+      logger.log("Remix completed", {
+        generationId: payload.generationId,
+        avatarId: avatar.id,
+        imageUrl
       });
 
       return {

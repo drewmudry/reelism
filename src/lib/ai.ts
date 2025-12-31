@@ -110,7 +110,7 @@ export async function generateImage(
 
     // Extract image data from the response
     const images: ImageGenerationResponse[] = [];
-    
+
     if (response.candidates && response.candidates.length > 0) {
       for (const candidate of response.candidates) {
         if (candidate.content?.parts) {
@@ -119,12 +119,12 @@ export async function generateImage(
               const imageBytes = part.inlineData.data;
               const mimeType = part.inlineData.mimeType || outputMimeType;
               const dataUrl = `data:${mimeType};base64,${imageBytes}`;
-              
+
               images.push({
                 imageBytes,
                 dataUrl,
               });
-              
+
               // Limit to requested number of images
               if (images.length >= numberOfImages) {
                 break;
@@ -203,7 +203,8 @@ export async function generateImage(
 export async function generateImageFromReference(
   referenceImageUrl: string,
   instructions: string,
-  options: ImageGenerationOptions = {}
+  options: ImageGenerationOptions = {},
+  productImageUrl?: string
 ): Promise<ImageGenerationResponse[]> {
   const {
     numberOfImages = 1,
@@ -220,26 +221,50 @@ export async function generateImageFromReference(
     if (!imageResponse.ok) {
       throw new Error(`Failed to fetch reference image: ${imageResponse.statusText}`);
     }
-    
+
     const imageBuffer = await imageResponse.arrayBuffer();
     const imageBytes = Buffer.from(imageBuffer).toString('base64');
     const imageMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
 
-    // Create a multimodal prompt with the reference image and instructions
-    // The API expects contents to be an array with parts containing both image and text
+    // Prepare prompt parts
+    const parts: any[] = [
+      {
+        inlineData: {
+          data: imageBytes,
+          mimeType: imageMimeType,
+        },
+      },
+    ];
+
+    let finalPrompt = `Based on this reference image, generate a new image with the following modifications: ${instructions}. Keep everything else the same, only apply the requested changes.`;
+
+    // Fetch and add product image if provided
+    if (productImageUrl) {
+      const productResponse = await fetch(productImageUrl);
+      if (productResponse.ok) {
+        const productBuffer = await productResponse.arrayBuffer();
+        const productBytes = Buffer.from(productBuffer).toString('base64');
+        const productMimeType = productResponse.headers.get('content-type') || 'image/jpeg';
+
+        parts.push({
+          inlineData: {
+            data: productBytes,
+            mimeType: productMimeType,
+          },
+        });
+
+        finalPrompt += ` Use the second image as a reference for the product to include/wear.`;
+      } else {
+        console.warn(`Failed to fetch product image: ${productResponse.statusText}`);
+      }
+    }
+
+    parts.push({ text: finalPrompt });
+
+    // Create a multimodal prompt with the reference image(s) and instructions
     const contents = [
       {
-        parts: [
-          {
-            inlineData: {
-              data: imageBytes,
-              mimeType: imageMimeType,
-            },
-          },
-          {
-            text: `Based on this reference image, generate a new image with the following modifications: ${instructions}. Keep everything else the same, only apply the requested changes.`,
-          },
-        ],
+        parts: parts,
       },
     ];
 
@@ -258,7 +283,7 @@ export async function generateImageFromReference(
 
     // Extract image data from the response
     const images: ImageGenerationResponse[] = [];
-    
+
     if (response.candidates && response.candidates.length > 0) {
       for (const candidate of response.candidates) {
         if (candidate.content?.parts) {
@@ -267,12 +292,12 @@ export async function generateImageFromReference(
               const generatedImageBytes = part.inlineData.data;
               const mimeType = part.inlineData.mimeType || outputMimeType;
               const dataUrl = `data:${mimeType};base64,${generatedImageBytes}`;
-              
+
               images.push({
                 imageBytes: generatedImageBytes,
                 dataUrl,
               });
-              
+
               // Limit to requested number of images
               if (images.length >= numberOfImages) {
                 break;
@@ -555,7 +580,7 @@ export async function generateVideo(
     if (!imageResponse.ok) {
       throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
     }
-    
+
     const imageBuffer = await imageResponse.arrayBuffer();
     // Convert to base64 string - the API expects imageBytes to be a string, not a Buffer
     const imageBytes = Buffer.from(imageBuffer).toString('base64');
@@ -564,13 +589,51 @@ export async function generateVideo(
     // Add system instruction to disable sound/voice generation
     // Prepend to the prompt to ensure it's followed
     // Using clear, explicit language to prevent audio generation
-    const enhancedPrompt = options.disableAudio === false 
-      ? prompt 
+    const enhancedPrompt = options.disableAudio === false
+      ? prompt
       : `CRITICAL INSTRUCTION: DO NOT GENERATE ANY SOUND, VOICE, AUDIO, OR SPEECH. This must be a completely silent video with zero audio track. Generate visual content only. ${prompt}`;
 
     // Initiate video generation with Veo 3.1
     // The image parameter sets the first frame of the video
     // Config specifies vertical aspect ratio (9:16) for portrait/vertical videos
+    // Prepare config object
+    const videoConfig: any = {
+      aspectRatio: '9:16', // Vertical format for portrait videos
+    };
+
+    // Handle reference images if provided
+    if (options.referenceImages && options.referenceImages.length > 0) {
+      const references = await Promise.all(options.referenceImages.map(async (url) => {
+        try {
+          const refResponse = await fetch(url);
+          if (!refResponse.ok) return null;
+
+          const refBuffer = await refResponse.arrayBuffer();
+          const refBytes = Buffer.from(refBuffer).toString('base64');
+          const refMimeType = refResponse.headers.get('content-type') || 'image/jpeg';
+
+          return {
+            image: {
+              imageBytes: refBytes,
+              mimeType: refMimeType,
+            },
+            referenceType: "ASSET", // As per Veo docs
+          };
+        } catch (e) {
+          console.warn(`Failed to fetch reference image: ${url}`, e);
+          return null;
+        }
+      }));
+
+      // Filter out failed fetches
+      const validReferences = references.filter(Boolean);
+
+      if (validReferences.length > 0) {
+        videoConfig.referenceImages = validReferences;
+      }
+    }
+
+    // Initiate video generation with Veo 3.1
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-generate-preview',
       prompt: enhancedPrompt,
@@ -578,9 +641,7 @@ export async function generateVideo(
         imageBytes: imageBytes, // Base64 string - this becomes the first frame
         mimeType: imageMimeType,
       },
-      config: {
-        aspectRatio: '9:16', // Vertical format for portrait videos
-      },
+      config: videoConfig,
     });
 
     // Poll the operation status until the video is ready
@@ -608,24 +669,28 @@ export async function generateVideo(
     // According to docs: ai.files.download({ file: ..., downloadPath: "..." })
     // But we need the data in memory, so we'll use a temp file approach
     const videoFile = operation.response.generatedVideos[0].video;
-    
+
+    if (!videoFile) {
+      throw new Error('Generated video file is missing from response');
+    }
+
     // Use a temporary file path for download
     const fs = await import('fs/promises');
     const path = await import('path');
     const os = await import('os');
-    
+
     const tempPath = path.join(os.tmpdir(), `veo-video-${Date.now()}-${Math.random().toString(36).substring(7)}.mp4`);
-    
+
     await ai.files.download({
       file: videoFile,
       downloadPath: tempPath,
     });
-    
+
     // Read the video file into a buffer
     const videoData = await fs.readFile(tempPath);
-    
+
     // Clean up temp file
-    await fs.unlink(tempPath).catch(() => {});
+    await fs.unlink(tempPath).catch(() => { });
 
     // Convert video to base64
     const videoBytes = videoData.toString('base64');

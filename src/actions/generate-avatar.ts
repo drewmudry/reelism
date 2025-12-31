@@ -82,7 +82,7 @@ export async function generateAvatarFromPrompt(promptInput: string) {
   }
 }
 
-export async function remixAvatar(avatarId: string, instructions: string) {
+export async function remixAvatar(avatarId: string, instructions: string, productImageUrl?: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -119,7 +119,7 @@ export async function remixAvatar(avatarId: string, instructions: string) {
       .insert(generations)
       .values({
         userId: session.user.id,
-        prompt: { instructions, remixFrom: avatarId },
+        prompt: { instructions, remixFrom: avatarId, productImageUrl },
         status: "pending",
         triggerJobId: null,
       })
@@ -151,6 +151,7 @@ export async function remixAvatar(avatarId: string, instructions: string) {
       generationId: generation.id,
       sourceImageUrl: sourceAvatar.imageUrl,
       instructions: instructions.trim(),
+      productImageUrl,
     });
 
     // Update generation with job ID
@@ -206,7 +207,7 @@ export async function getAvatarStatus(avatarId: string) {
       .from(generations)
       .where(eq(generations.id, avatar.generationId))
       .limit(1);
-    
+
     if (generation) {
       generationStatus = generation.status;
       triggerJobId = generation.triggerJobId;

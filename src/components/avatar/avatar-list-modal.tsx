@@ -18,7 +18,7 @@ interface Avatar {
 interface AvatarListModalProps {
   avatar: Avatar
   onClose: () => void
-  onRemix: (avatarId: string, instructions: string) => Promise<void>
+  onRemix: (avatarId: string, instructions: string, productImageUrl?: string) => Promise<void>
   isGenerating?: boolean
 }
 
@@ -30,22 +30,61 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
   const [animePrompt, setAnimePrompt] = useState("")
   const [isGeneratingAnimation, setIsGeneratingAnimation] = useState(false)
 
+  // Product selection state
+  const [products, setProducts] = useState<any[]>([])
+  const [selectedProductId, setSelectedProductId] = useState<string>("")
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+
+  // Fetch products when opening panels
+  const fetchProducts = async () => {
+    if (products.length > 0) return
+
+    setIsLoadingProducts(true)
+    try {
+      const { getProducts } = await import("@/actions/products")
+      const userProducts = await getProducts()
+      setProducts(userProducts)
+    } catch (error) {
+      console.error("Failed to fetch products:", error)
+    } finally {
+      setIsLoadingProducts(false)
+    }
+  }
+
   const handleRemixSubmit = async () => {
     if (!remixInstructions.trim()) {
       return
     }
-    await onRemix(avatar.id, remixInstructions.trim())
+
+    // Find selected product image URL if any
+    let productImageUrl = undefined
+    if (selectedProductId) {
+      const product = products.find(p => p.id === selectedProductId)
+      // Use the first image of the product if available
+      if (product && product.images && product.images.length > 0) {
+        productImageUrl = product.images[0]
+      }
+    }
+
+    await onRemix(avatar.id, remixInstructions.trim(), productImageUrl)
     setIsRemixing(false)
     setRemixInstructions("")
+    setSelectedProductId("")
   }
 
   const handleRemixClick = () => {
     setIsAnimating(false) // Close animate if open
+    if (!isRemixing) {
+      fetchProducts()
+    }
     setIsRemixing(!isRemixing)
   }
 
   const handleAnimeClick = () => {
     setIsRemixing(false) // Close remix if open
+    if (!isAnimating) {
+      fetchProducts()
+    }
     setIsAnimating(!isAnimating)
   }
 
@@ -56,11 +95,22 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
 
     setIsGeneratingAnimation(true)
     try {
-      await generateAnimationFromAvatar(avatar.id, animePrompt)
+      // Find selected product image URL if any
+      let productImageUrl = undefined
+      if (selectedProductId) {
+        const product = products.find(p => p.id === selectedProductId)
+        // Use the first image of the product if available
+        if (product && product.images && product.images.length > 0) {
+          productImageUrl = product.images[0]
+        }
+      }
+
+      await generateAnimationFromAvatar(avatar.id, animePrompt, productImageUrl)
       // Close modals and navigate to animations page
       setIsAnimating(false)
       onClose() // Close the avatar modal too
       setAnimePrompt("")
+      setSelectedProductId("")
       router.push("/app/animations")
     } catch (error) {
       console.error("Failed to generate animation:", error)
@@ -68,6 +118,38 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
       setIsGeneratingAnimation(false)
     }
   }
+
+  const productSelector = (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+        Attach a Product (Optional)
+      </label>
+      <select
+        value={selectedProductId}
+        onChange={(e) => setSelectedProductId(e.target.value)}
+        disabled={isGenerating || isGeneratingAnimation || isLoadingProducts}
+        className="w-full px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 appearance-none"
+      >
+        <option value="">Select a product...</option>
+        {products.map((product) => (
+          <option key={product.id} value={product.id}>
+            {product.title}
+          </option>
+        ))}
+      </select>
+      {selectedProductId && (
+        <div className="mt-2 text-xs text-zinc-500 flex items-center gap-2">
+          <span>Selected: {products.find(p => p.id === selectedProductId)?.title}</span>
+          <button
+            onClick={() => setSelectedProductId("")}
+            className="text-red-500 hover:text-red-600"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+    </div>
+  )
 
   const sidePanel = (
     <>
@@ -91,10 +173,12 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
                 className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
                 disabled={isGenerating}
               />
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-4">
                 Describe the changes you want to make to this avatar. The image will be used as a reference.
               </p>
             </div>
+
+            {productSelector}
           </div>
 
           <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
@@ -139,10 +223,12 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
                 className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
                 disabled={isGeneratingAnimation}
               />
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-4">
                 Enter a prompt describing how you want to animate this avatar. The animation will be generated using the avatar image and your prompt.
               </p>
             </div>
+
+            {productSelector}
           </div>
 
           <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
@@ -151,6 +237,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
               onClick={() => {
                 setIsAnimating(false)
                 setAnimePrompt("")
+                setSelectedProductId("")
               }}
               disabled={isGeneratingAnimation}
               className="flex-1"

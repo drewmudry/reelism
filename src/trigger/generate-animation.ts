@@ -1,5 +1,5 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
-import { db } from "@/index"; 
+import { db } from "@/index";
 import { animations, generations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateVideo } from "@/lib/ai";
@@ -69,14 +69,32 @@ export const generateAnimationTask = task({
       }
 
       // Extract prompt text from generation
-      const promptText = typeof generation.prompt === "string" 
-        ? generation.prompt 
-        : generation.prompt?.prompt || JSON.stringify(generation.prompt);
+      const promptData = generation.prompt as any;
+      const promptText = typeof generation.prompt === "string"
+        ? generation.prompt
+        : promptData.prompt || JSON.stringify(generation.prompt);
 
-      logger.log("Generating video...", { promptLength: promptText.length, avatarImageUrl: avatar.imageUrl });
+      const productImageUrl = promptData.productImageUrl;
+
+      logger.log("Generating video...", {
+        promptLength: promptText.length,
+        avatarImageUrl: avatar.imageUrl,
+        hasProductImage: !!productImageUrl
+      });
+
+      // If product image is present, pass it as a reference image
+      const referenceImages: string[] = [];
+      if (productImageUrl) {
+        referenceImages.push(productImageUrl);
+      }
+
+      // Veo 3.1 now accepts reference images, so we pass it in config.
+      // We can also keep the prompt descriptive.
 
       // Generate video
-      const video = await generateVideo(promptText, avatar.imageUrl);
+      const video = await generateVideo(promptText, avatar.imageUrl, {
+        referenceImages: referenceImages
+      });
 
       logger.log("Video generated successfully");
 
@@ -109,10 +127,10 @@ export const generateAnimationTask = task({
         })
         .where(eq(generations.id, payload.generationId));
 
-      logger.log("Animation generation completed", { 
-        generationId: payload.generationId, 
-        animationId: animation.id, 
-        videoUrl 
+      logger.log("Animation generation completed", {
+        generationId: payload.generationId,
+        animationId: animation.id,
+        videoUrl
       });
 
       return {

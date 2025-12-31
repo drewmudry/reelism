@@ -14,10 +14,10 @@ interface CuratedAvatar {
   updatedAt: Date;
 }
 
-export function CuratedAvatarList({ 
+export function CuratedAvatarList({
   avatars: initialAvatars,
   onSwitchToAllTab,
-}: { 
+}: {
   avatars: CuratedAvatar[];
   onSwitchToAllTab?: () => void;
 }) {
@@ -28,7 +28,7 @@ export function CuratedAvatarList({
   // Poll for completed avatars if there are any generating
   useEffect(() => {
     const hasGeneratingAvatars = initialAvatars.some((avatar) => !avatar.imageUrl);
-    
+
     if (!hasGeneratingAvatars) return;
 
     const interval = setInterval(() => {
@@ -42,12 +42,12 @@ export function CuratedAvatarList({
     setSelectedAvatar(avatar);
   }
 
-  async function handleRemix(avatarId: string, instructions: string) {
+  async function handleRemix(avatarId: string, instructions: string, productImageUrl?: string) {
     if (!instructions.trim()) return;
 
     setIsGenerating(true);
     try {
-      await remixAvatar(avatarId, instructions.trim());
+      await remixAvatar(avatarId, instructions.trim(), productImageUrl);
       // Close modal, switch to all tab, and refresh
       setSelectedAvatar(null);
       if (onSwitchToAllTab) {

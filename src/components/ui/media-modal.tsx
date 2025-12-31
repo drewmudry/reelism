@@ -44,11 +44,53 @@ export function MediaModal({
         setTimeout(() => setHasCopiedPrompt(false), 2000)
     }
 
-    const handleCopyUrl = () => {
+    const handleCopyUrl = async () => {
         if (!mediaUrl) return
-        navigator.clipboard.writeText(mediaUrl)
-        setHasCopiedUrl(true)
-        setTimeout(() => setHasCopiedUrl(false), 2000)
+
+        if (mediaType === "image") {
+            try {
+                const downloadUrl = await getDownloadUrl(mediaUrl)
+                const response = await fetch(downloadUrl)
+                let blob = await response.blob()
+
+                // Clipboard API specifies that 'image/png' is the only mandatory supported type for writing images.
+                if (blob.type !== "image/png") {
+                    try {
+                        const imageBitmap = await createImageBitmap(blob)
+                        const canvas = document.createElement("canvas")
+                        canvas.width = imageBitmap.width
+                        canvas.height = imageBitmap.height
+                        const ctx = canvas.getContext("2d")
+                        if (ctx) {
+                            ctx.drawImage(imageBitmap, 0, 0)
+                            const pngBlob = await new Promise<Blob | null>((resolve) =>
+                                canvas.toBlob(resolve, "image/png")
+                            )
+                            if (pngBlob) {
+                                blob = pngBlob
+                            }
+                        }
+                    } catch (conversionError) {
+                        console.error("Failed to convert image to PNG:", conversionError)
+                        // Fallback: try to copy original blob anyway, though it might fail
+                    }
+                }
+
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [blob.type]: blob,
+                    }),
+                ])
+                setHasCopiedUrl(true)
+                setTimeout(() => setHasCopiedUrl(false), 2000)
+            } catch (error) {
+                console.error("Failed to copy image:", error)
+            }
+        } else {
+            navigator.clipboard.writeText(mediaUrl)
+            setHasCopiedUrl(true)
+            setTimeout(() => setHasCopiedUrl(false), 2000)
+        }
     }
 
     const handleDownload = async () => {
