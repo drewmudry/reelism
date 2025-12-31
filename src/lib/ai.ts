@@ -1,4 +1,4 @@
-import { GoogleGenAI, PersonGeneration } from '@google/genai';
+import { GoogleGenAI, PersonGeneration, VideoGenerationReferenceType } from '@google/genai';
 import sharp from 'sharp';
 
 // Initialize the Google GenAI client
@@ -605,12 +605,19 @@ export async function* generateTextProStream(
  * Configuration options for video generation
  */
 export interface VideoGenerationOptions {
-  /** Reference image(s) to guide the video generation (base64 encoded) */
+  /** 
+   * Reference image(s) to guide the video generation (base64 encoded)
+   * NOTE: This is currently unused. The avatar image is passed via the `image` parameter
+   * instead of `referenceImages` because `referenceImages` only supports 16:9 aspect ratio.
+   * Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request.
+   */
   referenceImages?: string[];
   /** Duration of the video in seconds */
   duration?: number;
   /** Whether to disable audio generation (default: true) */
   disableAudio?: boolean;
+  /** Driver video URL for character controls - animates the avatar image using movements from this video */
+  driverVideoUrl?: string;
 }
 
 /**
@@ -623,6 +630,29 @@ export interface VideoGenerationResponse {
   dataUrl: string;
   /** Operation ID for polling status */
   operationId?: string;
+}
+
+/**
+ * Helper function to fetch and normalize an image
+ */
+async function fetchAndNormalize(imageUrl: string): Promise<{ bytes: string; mimeType: string }> {
+  const response = await fetch(imageUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image: ${response.statusText}`);
+  }
+  
+  const buffer = await response.arrayBuffer();
+  const originalMimeType = response.headers.get('content-type') || 'image/jpeg';
+  
+  const { buffer: normalizedBuffer, mimeType: normalizedMimeType } = await normalizeImageFormat(
+    buffer,
+    originalMimeType
+  );
+  
+  return {
+    bytes: normalizedBuffer.toString('base64'),
+    mimeType: normalizedMimeType,
+  };
 }
 
 /**
@@ -645,91 +675,37 @@ export async function generateVideo(
   options: VideoGenerationOptions = {}
 ): Promise<VideoGenerationResponse> {
   try {
-    // Fetch the image from the URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+    // 1. Process the Avatar Image (The person/character)
+    const avatarData = await fetchAndNormalize(imageUrl);
+
+    // 2. Prepare the Prompt
+    // Keep it simple; avoid "CRITICAL INSTRUCTION" prefixes which can trigger filters
+    let finalPrompt = prompt;
+    if (options.disableAudio !== false) {
+      // Use natural language instead of "CRITICAL" prefix
+      finalPrompt = `A silent video with no audio. ${prompt}`;
     }
 
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const originalMimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
-    
-    // Normalize image format (convert AVIF and other unsupported formats to JPEG)
-    const { buffer: normalizedBuffer, mimeType: normalizedMimeType } = await normalizeImageFormat(
-      imageBuffer,
-      originalMimeType
-    );
-    
-    // Convert to base64 string - the API expects imageBytes to be a string, not a Buffer
-    const imageBytes = normalizedBuffer.toString('base64');
-    const imageMimeType = normalizedMimeType;
-
-    // Add system instruction to disable sound/voice generation
-    // Prepend to the prompt to ensure it's followed
-    // Using clear, explicit language to prevent audio generation
-    const enhancedPrompt = options.disableAudio === false
-      ? prompt
-      : `CRITICAL INSTRUCTION: DO NOT GENERATE ANY SOUND, VOICE, AUDIO, OR SPEECH. This must be a completely silent video with zero audio track. Generate visual content only. ${prompt}`;
-
-    // Initiate video generation with Veo 3.1
-    // The image parameter sets the first frame of the video
-    // Config specifies vertical aspect ratio (9:16) for portrait/vertical videos
-    // Prepare config object
-    const videoConfig: any = {
-      aspectRatio: '9:16', // Vertical format for portrait videos
-    };
-
-    // Handle reference images if provided
-    if (options.referenceImages && options.referenceImages.length > 0) {
-      const references = await Promise.all(options.referenceImages.map(async (url) => {
-        try {
-          const refResponse = await fetch(url);
-          if (!refResponse.ok) return null;
-
-          const refBuffer = await refResponse.arrayBuffer();
-          const originalRefMimeType = refResponse.headers.get('content-type') || 'image/jpeg';
-          
-          // Normalize image format (convert AVIF and other unsupported formats to JPEG)
-          const { buffer: normalizedRefBuffer, mimeType: normalizedRefMimeType } = await normalizeImageFormat(
-            refBuffer,
-            originalRefMimeType
-          );
-          
-          const refBytes = normalizedRefBuffer.toString('base64');
-
-          return {
-            image: {
-              imageBytes: refBytes,
-              mimeType: normalizedRefMimeType,
-            },
-            referenceType: "ASSET", // As per Veo docs
-          };
-        } catch (e) {
-          console.warn(`Failed to fetch reference image: ${url}`, e);
-          return null;
-        }
-      }));
-
-      // Filter out failed fetches
-      const validReferences = references.filter(Boolean);
-
-      if (validReferences.length > 0) {
-        videoConfig.referenceImages = validReferences;
-      }
-    }
-
-    // Initiate video generation with Veo 3.1
+    // 3. Execute Generation
+    // IMPORTANT: Use the `image` parameter instead of `referenceImages` in config
+    // because `referenceImages` only supports 16:9 aspect ratio, but we need 9:16
+    // The `image` parameter works for image-to-video without aspect ratio restrictions
+    // 
+    // Note: Veo 3.1 preview does NOT support mixing avatar + product in same request
+    // So we only pass the avatar image here, no products
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-generate-preview',
-      prompt: enhancedPrompt,
+      prompt: finalPrompt,
       image: {
-        imageBytes: imageBytes, // Base64 string - this becomes the first frame
-        mimeType: imageMimeType,
+        imageBytes: avatarData.bytes,
+        mimeType: avatarData.mimeType,
       },
-      config: videoConfig,
+      config: {
+        aspectRatio: '9:16',
+      },
     });
 
-    // Poll the operation status until the video is ready
+    // 6. Poll the operation status until the video is ready
     const maxAttempts = 60; // 10 minutes max (60 * 10 seconds)
     let attempts = 0;
 
@@ -750,9 +726,7 @@ export async function generateVideo(
       throw new Error('No video was generated');
     }
 
-    // Download the generated video
-    // According to docs: ai.files.download({ file: ..., downloadPath: "..." })
-    // But we need the data in memory, so we'll use a temp file approach
+    // 7. Download the generated video
     const videoFile = operation.response.generatedVideos[0].video;
 
     if (!videoFile) {
@@ -786,7 +760,7 @@ export async function generateVideo(
       videoBytes,
       dataUrl,
       operationId: operation.name,
-    };
+    }; 
   } catch (error) {
     console.error('Video generation error:', error);
     throw error;

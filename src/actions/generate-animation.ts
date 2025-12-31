@@ -9,8 +9,7 @@ import { generateAnimationTask } from "@/trigger/generate-animation";
 
 export async function generateAnimationFromAvatar(
   avatarId: string,
-  prompt: string,
-  productImageUrls?: string[]
+  prompt: string
 ) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -38,11 +37,12 @@ export async function generateAnimationFromAvatar(
     }
 
     // Create generation record
+    // Note: Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request
     const [generation] = await db
       .insert(generations)
       .values({
         userId: session.user.id,
-        prompt: { prompt, productImageUrls },
+        prompt: { prompt },
         status: "pending",
         triggerJobId: null,
       })

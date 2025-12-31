@@ -79,9 +79,6 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
 
   const handleAnimeClick = () => {
     setIsRemixing(false) // Close remix if open
-    if (!isAnimating) {
-      fetchProducts()
-    }
     setIsAnimating(!isAnimating)
   }
 
@@ -92,18 +89,13 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
 
     setIsGeneratingAnimation(true)
     try {
-      // Use selected product image URLs (or empty array if none selected)
-      const productImageUrls = selectedProductImageUrls.length > 0 
-        ? selectedProductImageUrls 
-        : undefined
-
-      await generateAnimationFromAvatar(avatar.id, animePrompt, productImageUrls)
+      // Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request
+      // So we don't pass any product images for animation generation
+      await generateAnimationFromAvatar(avatar.id, animePrompt)
       // Close modals and navigate to animations page
       setIsAnimating(false)
       onClose() // Close the avatar modal too
       setAnimePrompt("")
-      setSelectedProductId("")
-      setSelectedProductImageUrls([])
       router.push("/app/animations")
     } catch (error) {
       console.error("Failed to generate animation:", error)
@@ -123,6 +115,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
       if (prev.includes(imageUrl)) {
         return prev.filter(url => url !== imageUrl)
       } else {
+        // For remix, allow multiple images
         return [...prev, imageUrl]
       }
     })
@@ -131,6 +124,7 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
   const selectedProduct = products.find(p => p.id === selectedProductId)
   const productImages = selectedProduct?.images || []
 
+  // Product selector component - only used for remix (not animation)
   const productSelector = (
     <div className="mb-4">
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
@@ -291,9 +285,8 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-4">
                 Enter a prompt describing how you want to animate this avatar. The animation will be generated using the avatar image and your prompt.
               </p>
-            </div>
 
-            {productSelector}
+            </div>
           </div>
 
           <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
@@ -302,8 +295,6 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
               onClick={() => {
                 setIsAnimating(false)
                 setAnimePrompt("")
-                setSelectedProductId("")
-                setSelectedProductImageUrls([])
               }}
               disabled={isGeneratingAnimation}
               className="flex-1"

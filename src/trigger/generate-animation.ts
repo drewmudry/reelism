@@ -74,24 +74,15 @@ export const generateAnimationTask = task({
         ? generation.prompt
         : promptData.prompt || JSON.stringify(generation.prompt);
 
-      const productImageUrls = promptData.productImageUrls || [];
-
       logger.log("Generating video...", {
         promptLength: promptText.length,
         avatarImageUrl: avatar.imageUrl,
-        productImageCount: productImageUrls.length
       });
 
-      // Use product images as reference images
-      const referenceImages: string[] = [...productImageUrls];
-
-      // Veo 3.1 now accepts reference images, so we pass it in config.
-      // We can also keep the prompt descriptive.
-
-      // Generate video
-      const video = await generateVideo(promptText, avatar.imageUrl, {
-        referenceImages: referenceImages
-      });
+      // IMPORTANT: Veo 3.1 preview does NOT support mixing avatar (SUBJECT) + product (ASSET) in same request
+      // You can only provide multiple images of the SAME subject (up to 3 images of same person/product)
+      // So we only pass the avatar image, no products
+      const video = await generateVideo(promptText, avatar.imageUrl, {});
 
       logger.log("Video generated successfully");
 
