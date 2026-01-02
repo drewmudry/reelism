@@ -4,7 +4,7 @@ import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect } from "react";
-import { ArrowRight, ChevronDown, Film, User, Package, Sparkles, Users, Zap } from "lucide-react";
+import { ArrowRight, ChevronDown, Film, Sparkles, Users, Zap } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
