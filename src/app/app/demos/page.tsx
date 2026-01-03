@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getUserUploads } from "@/actions/uploads";
-import { DemoModal } from "@/components/uploads/demo-modal";
-import { UploadList } from "@/components/uploads/upload-list";
+import { getUserDemos } from "@/actions/demos";
+import { DemoModal } from "@/components/demos/demo-modal";
+import { DemoList } from "@/components/demos/demo-list";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -13,8 +13,7 @@ export default async function DemosPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
 
-  // Get uploads where demo=true (demos are always videos)
-  const demos = await getUserUploads("video", true);
+  const demos = await getUserDemos();
 
   return (
     <SidebarProvider>
@@ -45,9 +44,10 @@ export default async function DemosPage() {
             <DemoModal />
           </div>
 
-          <UploadList uploads={demos} />
+          <DemoList demos={demos} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+

@@ -2,7 +2,7 @@
 
 import { useState, ReactNode } from "react"
 import { X, Copy, Check, Image, Loader2, Download } from "lucide-react"
-import { getDownloadUrl } from "@/actions/uploads"
+import { getDownloadUrl } from "@/actions/media"
 
 interface MediaModalProps {
     mediaType: "image" | "video"
