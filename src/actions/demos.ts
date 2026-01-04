@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/index";
 import { demos } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { getPresignedUploadUrl } from "@/lib/storage";
 
 // 1. Get Presigned URL for direct S3 upload
@@ -31,22 +31,44 @@ export async function createDemoRecord(input: {
   size: number;
   title?: string;
   description?: string;
+  productId?: string;
+  width?: number;
+  height?: number;
+  talkingHeadRegions?: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    startTime?: number;
+    endTime?: number;
+  }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Not authenticated");
 
   const [record] = await db.insert(demos).values({
     userId: session.user.id,
-    ...input
+    ...input,
+    talkingHeadRegions: input.talkingHeadRegions || [],
   }).returning();
 
   return record;
 }
 
 // 3. Fetch User Demos
-export async function getUserDemos() {
+export async function getUserDemos(productId?: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Not authenticated");
+
+  if (productId) {
+    return await db.select()
+      .from(demos)
+      .where(and(
+        eq(demos.userId, session.user.id),
+        eq(demos.productId, productId)
+      ))
+      .orderBy(desc(demos.createdAt));
+  }
 
   return await db.select()
     .from(demos)
@@ -55,7 +77,19 @@ export async function getUserDemos() {
 }
 
 // 4. Update Demo
-export async function updateDemo(demoId: string, title: string) {
+export async function updateDemo(input: {
+  demoId: string;
+  title?: string;
+  productId?: string | null;
+  talkingHeadRegions?: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    startTime?: number;
+    endTime?: number;
+  }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Not authenticated");
 
@@ -63,20 +97,31 @@ export async function updateDemo(demoId: string, title: string) {
   const [existing] = await db
     .select()
     .from(demos)
-    .where(eq(demos.id, demoId))
+    .where(eq(demos.id, input.demoId))
     .limit(1);
 
   if (!existing || existing.userId !== session.user.id) {
     throw new Error("Demo not found");
   }
 
+  const updateData: Partial<typeof demos.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.title !== undefined) {
+    updateData.title = input.title.trim() || null;
+  }
+  if (input.productId !== undefined) {
+    updateData.productId = input.productId || null;
+  }
+  if (input.talkingHeadRegions !== undefined) {
+    updateData.talkingHeadRegions = input.talkingHeadRegions;
+  }
+
   const [updated] = await db
     .update(demos)
-    .set({
-      title: title.trim() || null,
-      updatedAt: new Date(),
-    })
-    .where(eq(demos.id, demoId))
+    .set(updateData)
+    .where(eq(demos.id, input.demoId))
     .returning();
 
   if (!updated) {

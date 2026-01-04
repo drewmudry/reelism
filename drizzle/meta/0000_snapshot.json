@@ -1,5 +1,5 @@
 {
-  "id": "bae4e6d9-8aa3-46e8-a5fa-7909ead5f85c",
+  "id": "58d6475b-c1fd-468a-a73d-a11f49557ad0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -780,6 +780,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "url": {
           "name": "url",
           "type": "text",
@@ -816,6 +822,25 @@
           "primaryKey": false,
           "notNull": false
         },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "talking_head_regions": {
+          "name": "talking_head_regions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -846,6 +871,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "demos_product_id_idx": {
+          "name": "demos_product_id_idx",
+          "columns": [
+            {
+              "expression": "product_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -860,6 +900,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "demos_product_id_products_id_fk": {
+          "name": "demos_product_id_products_id_fk",
+          "tableFrom": "demos",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

@@ -1,43 +1,95 @@
 "use client";
 
-import { useState } from "react";
-import { Video, Trash2, Edit2, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Video, Trash2, Edit2, Loader2, X, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { deleteDemo, updateDemo } from "@/actions/demos";
 import { useRouter } from "next/navigation";
+import { VideoRegionSelector, TalkingHeadRegion } from "./video-region-selector";
+import { getProducts } from "@/actions/products";
 
 type Demo = {
   id: string;
   url: string;
   filename: string;
   title: string | null;
+  productId: string | null;
+  width: number | null;
+  height: number | null;
+  talkingHeadRegions: TalkingHeadRegion[] | null;
   createdAt: Date;
+};
+
+type Product = {
+  id: string;
+  title: string | null;
 };
 
 export function DemoList({ demos }: { demos: Demo[] }) {
   const router = useRouter();
   const [editingDemo, setEditingDemo] = useState<Demo | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editProductId, setEditProductId] = useState<string>("");
+  const [editRegions, setEditRegions] = useState<TalkingHeadRegion[]>([]);
+  const [regionsSidePanel, setRegionsSidePanel] = useState<React.ReactNode>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVertical, setIsVertical] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (editingDemo) {
+      setEditTitle(editingDemo.title || "");
+      setEditProductId(editingDemo.productId || "");
+      setEditRegions(editingDemo.talkingHeadRegions || []);
+      setStep(1);
+      setIsVertical(editingDemo.height && editingDemo.width ? editingDemo.height > editingDemo.width : null);
+    }
+  }, [editingDemo]);
+
+  useEffect(() => {
+    if (editingDemo && products.length === 0) {
+      fetchProducts();
+    }
+  }, [editingDemo]);
+
+  const fetchProducts = async () => {
+    setIsLoadingProducts(true);
+    try {
+      const userProducts = await getProducts();
+      setProducts(userProducts);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
 
   const handleEdit = (demo: Demo) => {
     setEditingDemo(demo);
-    setEditTitle(demo.title || "");
   };
 
   const handleSave = async () => {
     if (!editingDemo) return;
     setIsUpdating(true);
     try {
-      await updateDemo(editingDemo.id, editTitle);
+      await updateDemo({
+        demoId: editingDemo.id,
+        title: editTitle,
+        productId: editProductId || null,
+        talkingHeadRegions: editRegions,
+      });
       setEditingDemo(null);
       router.refresh();
     } catch (error) {
@@ -45,6 +97,20 @@ export function DemoList({ demos }: { demos: Demo[] }) {
       alert("Failed to update demo");
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleContinueFromRegions = () => {
+    if (isVertical && editRegions.length === 0) {
+      alert("Please select at least one region for talking head placement. This is required for vertical videos.");
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleBack = () => {
+    if (step === 2) {
+      setStep(1);
     }
   };
 
@@ -142,37 +208,187 @@ export function DemoList({ demos }: { demos: Demo[] }) {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingDemo} onOpenChange={(open) => !open && setEditingDemo(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Demo</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="Demo title"
-                disabled={isUpdating}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setEditingDemo(null)}
-                disabled={isUpdating}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isUpdating}>
-                {isUpdating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save
-              </Button>
+      {editingDemo && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setEditingDemo(null)} />
+
+          {/* Modal Container */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
+            <div
+              className={`pointer-events-auto transition-all duration-500 ease-out ${
+                step === 2 && editRegions.length > 0 ? "max-w-[800px]" : step === 2 ? "max-w-[400px]" : step === 1 ? "max-w-[400px]" : "max-w-[400px]"
+              }`}
+            >
+              <div className="flex gap-4">
+                {step === 1 ? (
+                  <>
+                    {/* Main Form Container */}
+                    <div className="flex-shrink-0">
+                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-80">
+                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+                          <h3 className="text-lg font-semibold">Edit Demo</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Update title, product, and regions
+                          </p>
+                        </div>
+                        <div className="p-4 space-y-4">
+                          <div>
+                            <label htmlFor="edit-title" className="text-sm font-medium mb-2 block">
+                              Title
+                            </label>
+                            <Input
+                              id="edit-title"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              placeholder="Demo title"
+                              disabled={isUpdating}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="edit-product" className="text-sm font-medium mb-2 block">
+                              Product (Optional)
+                            </label>
+                            {isLoadingProducts ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Loading products...</span>
+                              </div>
+                            ) : (
+                              <select
+                                id="edit-product"
+                                value={editProductId}
+                                onChange={(e) => setEditProductId(e.target.value)}
+                                disabled={isUpdating}
+                                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                              >
+                                <option value="">No product</option>
+                                {products.map((product) => (
+                                  <option key={product.id} value={product.id}>
+                                    {product.title || "Untitled Product"}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">
+                              Talking Head Regions
+                            </label>
+                            <Button
+                              variant="outline"
+                              onClick={() => setStep(2)}
+                              className="w-full"
+                              disabled={isUpdating}
+                            >
+                              {editRegions.length > 0
+                                ? `Edit Regions (${editRegions.length} selected)`
+                                : "Edit Regions"}
+                              <ChevronRight className="h-4 w-4 ml-2" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Control Buttons */}
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setEditingDemo(null)}
+                        className="h-10 w-10 flex items-center justify-center bg-card hover:bg-muted rounded-full text-foreground transition-colors shadow-lg border border-zinc-200 dark:border-zinc-800"
+                        aria-label="Close modal"
+                      >
+                        <X size={20} />
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={isUpdating}
+                        className="h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border bg-primary text-primary-foreground hover:bg-primary/90 border-primary disabled:opacity-50"
+                        aria-label="Save"
+                      >
+                        {isUpdating ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <>
+                            <span className="text-xs hidden sm:inline">Save</span>
+                            <ChevronRight size={18} />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Region Selection Step - Video Container */}
+                    <div className="flex-shrink-0">
+                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-80">
+                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+                          <h3 className="text-lg font-semibold">Edit Regions</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {isVertical
+                              ? "Select regions where it's safe to place a talking head. This is required for vertical videos."
+                              : "Optionally select regions for talking head placement."}
+                          </p>
+                        </div>
+                        {editingDemo && (
+                          <>
+                            <video
+                              ref={videoRef}
+                              src={editingDemo.url}
+                              className="hidden"
+                              preload="metadata"
+                            />
+                            <VideoRegionSelector
+                              videoUrl={editingDemo.url}
+                              regions={editRegions}
+                              onRegionsChange={setEditRegions}
+                              isRequired={isVertical === true}
+                              showSidePanel={false}
+                              onSidePanelRender={setRegionsSidePanel}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Side Panel - Selected Regions */}
+                    {regionsSidePanel}
+
+                    {/* Control Buttons */}
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setEditingDemo(null)}
+                        className="h-10 w-10 flex items-center justify-center bg-card hover:bg-muted rounded-full text-foreground transition-colors shadow-lg border border-zinc-200 dark:border-zinc-800"
+                        aria-label="Close modal"
+                      >
+                        <X size={20} />
+                      </button>
+                      <button
+                        onClick={handleBack}
+                        disabled={isUpdating}
+                        className="h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800 disabled:opacity-50"
+                        aria-label="Back"
+                      >
+                        <ChevronLeft size={18} />
+                        <span className="text-xs hidden sm:inline">Back</span>
+                      </button>
+                      <button
+                        onClick={handleContinueFromRegions}
+                        disabled={isUpdating}
+                        className="h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border bg-primary text-primary-foreground hover:bg-primary/90 border-primary disabled:opacity-50"
+                        aria-label="Continue"
+                      >
+                        <span className="text-xs hidden sm:inline">Continue</span>
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
     </>
   );
 }

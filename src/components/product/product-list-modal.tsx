@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Edit, ChevronLeft, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { X, Edit, ChevronLeft, ChevronRight, Plus, Loader2, Video } from "lucide-react";
 import { ProductEditForm } from "./product-edit-form";
 import { updateProduct, getPresignedUrls } from "@/actions/products";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: string;
@@ -31,6 +32,7 @@ export function ProductListModal({
   onClose,
   onProductUpdated,
 }: ProductListModalProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAddingImages, setIsAddingImages] = useState(false);
@@ -96,6 +98,11 @@ export function ProductListModal({
     } else {
       setIsAddingImages(false);
     }
+  };
+
+  const handleViewDemos = () => {
+    onClose();
+    router.push(`/app/demos?productId=${product.id}`);
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,6 +287,16 @@ export function ProductListModal({
           <Plus size={18} />
         )}
         <span className="text-xs hidden sm:inline">{isAddingImages ? "Done" : "Add"}</span>
+      </button>
+
+      <button
+        onClick={handleViewDemos}
+        className="h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
+        aria-label="View demos"
+        title="View demos for this product"
+      >
+        <Video size={18} />
+        <span className="text-xs hidden sm:inline">Demos</span>
       </button>
     </>
   );
