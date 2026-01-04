@@ -6,6 +6,7 @@ import { db } from "@/index";
 import { avatars, generations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateAvatarTask } from "@/trigger/generate-avatar";
+import { RemixOptions, DEFAULT_REMIX_OPTIONS, buildRemixPrompt } from "@/lib/remix-options";
 
 
 export async function generateAvatarFromPrompt(promptInput: string) {
@@ -82,7 +83,12 @@ export async function generateAvatarFromPrompt(promptInput: string) {
   }
 }
 
-export async function remixAvatar(avatarId: string, instructions: string, productImageUrls?: string[]) {
+export async function remixAvatar(
+  avatarId: string,
+  instructions: string,
+  productImageUrls?: string[],
+  remixOptions?: Partial<RemixOptions>
+) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -94,6 +100,12 @@ export async function remixAvatar(avatarId: string, instructions: string, produc
   if (!instructions.trim()) {
     throw new Error("Instructions cannot be empty");
   }
+
+  // Merge provided options with defaults
+  const options: RemixOptions = {
+    ...DEFAULT_REMIX_OPTIONS,
+    ...remixOptions,
+  };
 
   try {
     // Fetch the source avatar
@@ -114,12 +126,21 @@ export async function remixAvatar(avatarId: string, instructions: string, produc
       throw new Error("Source avatar must have an image to remix");
     }
 
-    // Create generation record with instructions
+    // Build the enhanced prompt with remix options
+    const enhancedInstructions = buildRemixPrompt(instructions.trim(), options);
+
+    // Create generation record with instructions and remix options
     const [generation] = await db
       .insert(generations)
       .values({
         userId: session.user.id,
-        prompt: { instructions, remixFrom: avatarId, productImageUrls },
+        prompt: {
+          instructions: enhancedInstructions,
+          originalInstructions: instructions.trim(),
+          remixFrom: avatarId,
+          productImageUrls,
+          remixOptions: options,
+        },
         status: "pending",
         triggerJobId: null,
       })
@@ -150,8 +171,9 @@ export async function remixAvatar(avatarId: string, instructions: string, produc
     const handle = await remixAvatarTask.trigger({
       generationId: generation.id,
       sourceImageUrl: sourceAvatar.imageUrl,
-      instructions: instructions.trim(),
+      instructions: enhancedInstructions,
       productImageUrls,
+      remixOptions: options,
     });
 
     // Update generation with job ID

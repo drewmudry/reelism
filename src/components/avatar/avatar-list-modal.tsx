@@ -4,8 +4,18 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { MediaModal } from "@/components/ui/media-modal"
-import { Zap, Wand2, Loader2, Sparkles, Video } from "lucide-react"
+import { Zap, Wand2, Loader2, Sparkles, Video, Sliders, ChevronDown, ChevronUp } from "lucide-react"
 import { generateAnimationFromAvatar } from "@/actions/generate-animation"
+import {
+  RemixOptions,
+  RemixIntensity,
+  PreserveElement,
+  StylePreset,
+  DEFAULT_REMIX_OPTIONS,
+  INTENSITY_LABELS,
+  PRESERVE_ELEMENT_LABELS,
+  STYLE_PRESET_LABELS,
+} from "@/lib/remix-options"
 
 interface Avatar {
   id: string
@@ -18,7 +28,7 @@ interface Avatar {
 interface AvatarListModalProps {
   avatar: Avatar
   onClose: () => void
-  onRemix: (avatarId: string, instructions: string, productImageUrls?: string[]) => Promise<void>
+  onRemix: (avatarId: string, instructions: string, productImageUrls?: string[], remixOptions?: Partial<RemixOptions>) => Promise<void>
   isGenerating?: boolean
 }
 
@@ -35,6 +45,12 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
   const [selectedProductId, setSelectedProductId] = useState<string>("")
   const [selectedProductImageUrls, setSelectedProductImageUrls] = useState<string[]>([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+
+  // Remix options state
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
+  const [remixIntensity, setRemixIntensity] = useState<RemixIntensity>(DEFAULT_REMIX_OPTIONS.intensity)
+  const [preserveElements, setPreserveElements] = useState<PreserveElement[]>(DEFAULT_REMIX_OPTIONS.preserveElements)
+  const [stylePreset, setStylePreset] = useState<StylePreset>(DEFAULT_REMIX_OPTIONS.stylePreset)
 
   // Fetch products when opening panels
   const fetchProducts = async () => {
@@ -58,15 +74,36 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
     }
 
     // Use selected product image URLs (or empty array if none selected)
-    const productImageUrls = selectedProductImageUrls.length > 0 
-      ? selectedProductImageUrls 
+    const productImageUrls = selectedProductImageUrls.length > 0
+      ? selectedProductImageUrls
       : undefined
 
-    await onRemix(avatar.id, remixInstructions.trim(), productImageUrls)
+    // Build remix options
+    const remixOptions: Partial<RemixOptions> = {
+      intensity: remixIntensity,
+      preserveElements: preserveElements,
+      stylePreset: stylePreset,
+      variationCount: 1,
+    }
+
+    await onRemix(avatar.id, remixInstructions.trim(), productImageUrls, remixOptions)
     setIsRemixing(false)
     setRemixInstructions("")
     setSelectedProductId("")
     setSelectedProductImageUrls([])
+    // Reset remix options to defaults
+    setRemixIntensity(DEFAULT_REMIX_OPTIONS.intensity)
+    setPreserveElements(DEFAULT_REMIX_OPTIONS.preserveElements)
+    setStylePreset(DEFAULT_REMIX_OPTIONS.stylePreset)
+    setShowAdvancedOptions(false)
+  }
+
+  const handlePreserveElementToggle = (element: PreserveElement) => {
+    setPreserveElements(prev =>
+      prev.includes(element)
+        ? prev.filter(e => e !== element)
+        : [...prev, element]
+    )
   }
 
   const handleRemixClick = () => {
@@ -239,9 +276,107 @@ export function AvatarListModal({ avatar, onClose, onRemix, isGenerating = false
                 className="w-full min-h-[80px] px-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400 resize-none"
                 disabled={isGenerating}
               />
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-4">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-2">
                 Describe the changes you want to make to this avatar. The image will be used as a reference.
               </p>
+            </div>
+
+            {/* Advanced Remix Options */}
+            <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Sliders className="h-4 w-4" />
+                  <span>Advanced Options</span>
+                </div>
+                {showAdvancedOptions ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {showAdvancedOptions && (
+                <div className="p-3 space-y-4 bg-white dark:bg-zinc-950">
+                  {/* Remix Intensity */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                      Remix Intensity
+                    </label>
+                    <div className="flex gap-2">
+                      {(Object.keys(INTENSITY_LABELS) as RemixIntensity[]).map((intensity) => (
+                        <button
+                          key={intensity}
+                          type="button"
+                          onClick={() => setRemixIntensity(intensity)}
+                          disabled={isGenerating}
+                          className={`flex-1 px-2 py-1.5 text-xs rounded-md transition-all ${
+                            remixIntensity === intensity
+                              ? "bg-blue-500 text-white"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                          }`}
+                          title={INTENSITY_LABELS[intensity].description}
+                        >
+                          {INTENSITY_LABELS[intensity].label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      {INTENSITY_LABELS[remixIntensity].description}
+                    </p>
+                  </div>
+
+                  {/* Style Preset */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                      Style Preset
+                    </label>
+                    <select
+                      value={stylePreset}
+                      onChange={(e) => setStylePreset(e.target.value as StylePreset)}
+                      disabled={isGenerating}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400"
+                    >
+                      {(Object.keys(STYLE_PRESET_LABELS) as StylePreset[]).map((preset) => (
+                        <option key={preset} value={preset}>
+                          {STYLE_PRESET_LABELS[preset].label} - {STYLE_PRESET_LABELS[preset].description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Preserve Elements */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                      Preserve Elements (optional)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.keys(PRESERVE_ELEMENT_LABELS) as PreserveElement[]).map((element) => (
+                        <button
+                          key={element}
+                          type="button"
+                          onClick={() => handlePreserveElementToggle(element)}
+                          disabled={isGenerating}
+                          className={`px-2 py-1 text-xs rounded-full transition-all border ${
+                            preserveElements.includes(element)
+                              ? "bg-green-500 text-white border-green-500"
+                              : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
+                          }`}
+                          title={PRESERVE_ELEMENT_LABELS[element].description}
+                        >
+                          {PRESERVE_ELEMENT_LABELS[element].label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      Select elements to keep unchanged during remix
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {productSelector}

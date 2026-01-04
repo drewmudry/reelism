@@ -6,6 +6,7 @@ import { getAvatars } from "@/actions/get-avatars"
 import { remixAvatar } from "@/actions/generate-avatar"
 import { Loader2 } from "lucide-react"
 import { AvatarListModal } from "./avatar-list-modal"
+import { RemixOptions } from "@/lib/remix-options"
 
 interface Avatar {
   id: string
@@ -38,11 +39,11 @@ export function AvatarList() {
     fetchAvatars()
   }, [])
 
-  const handleRemix = async (avatarId: string, instructions: string, productImageUrls?: string[]) => {
+  const handleRemix = async (avatarId: string, instructions: string, productImageUrls?: string[], remixOptions?: Partial<RemixOptions>) => {
     if (!instructions.trim()) return;
     setIsGenerating(true);
     try {
-      await remixAvatar(avatarId, instructions, productImageUrls);
+      await remixAvatar(avatarId, instructions, productImageUrls, remixOptions);
       // Refresh the avatars list to show the new remix
       const data = await getAvatars();
       setAvatars(data);

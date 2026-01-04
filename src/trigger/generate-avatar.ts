@@ -4,6 +4,7 @@ import { avatars, generations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateImage, generateImageFromReference } from "@/lib/ai";
 import { uploadImage } from "@/lib/storage";
+import { RemixOptions } from "@/lib/remix-options";
 
 /**
  * Converts a complex prompt object to a text description for image generation
@@ -231,11 +232,18 @@ export const generateAvatarTask = task({
 export const remixAvatarTask = task({
   id: "remix-avatar",
   maxDuration: 600, // 10 minutes
-  run: async (payload: { generationId: string; sourceImageUrl: string; instructions: string; productImageUrls?: string[] }) => {
+  run: async (payload: {
+    generationId: string;
+    sourceImageUrl: string;
+    instructions: string;
+    productImageUrls?: string[];
+    remixOptions?: RemixOptions;
+  }) => {
     logger.log("Starting avatar remix", {
       generationId: payload.generationId,
       instructions: payload.instructions,
-      productImageCount: payload.productImageUrls?.length || 0
+      productImageCount: payload.productImageUrls?.length || 0,
+      remixOptions: payload.remixOptions,
     });
 
     try {

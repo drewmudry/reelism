@@ -5,6 +5,7 @@ import { remixAvatar } from "@/actions/generate-avatar";
 import { useRouter } from "next/navigation";
 import { AvatarListModal } from "./avatar-list-modal";
 import { Loader2 } from "lucide-react";
+import { RemixOptions } from "@/lib/remix-options";
 
 interface CuratedAvatar {
   id: string;
@@ -42,12 +43,12 @@ export function CuratedAvatarList({
     setSelectedAvatar(avatar);
   }
 
-  async function handleRemix(avatarId: string, instructions: string, productImageUrls?: string[]) {
+  async function handleRemix(avatarId: string, instructions: string, productImageUrls?: string[], remixOptions?: Partial<RemixOptions>) {
     if (!instructions.trim()) return;
 
     setIsGenerating(true);
     try {
-      await remixAvatar(avatarId, instructions.trim(), productImageUrls);
+      await remixAvatar(avatarId, instructions.trim(), productImageUrls, remixOptions);
       // Close modal, switch to all tab, and refresh
       setSelectedAvatar(null);
       if (onSwitchToAllTab) {

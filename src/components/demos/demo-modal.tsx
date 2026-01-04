@@ -93,8 +93,8 @@ export function DemoModal() {
           <FileUpload
             onUploadSuccess={handleFileUploadSuccess}
             onUploadError={handleFileUploadError}
-            accept="video/*"
-            maxSize={100 * 1024 * 1024} // 100MB
+            acceptedFileTypes={["video/*"]}
+            maxFileSize={100 * 1024 * 1024} // 100MB
             uploadDelay={0} // Disable simulation, we'll handle real upload
           />
           {isUploading && (
