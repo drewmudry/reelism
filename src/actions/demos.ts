@@ -6,6 +6,7 @@ import { db } from "@/index";
 import { demos } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { getPresignedUploadUrl } from "@/lib/storage";
+import { analyzeDemoVideoTask } from "@/trigger/analyze-demo-video";
 
 // 1. Get Presigned URL for direct S3 upload
 export async function getDemoUploadPresignedUrl(
@@ -46,11 +47,30 @@ export async function createDemoRecord(input: {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Not authenticated");
 
+  // Create the demo record first
   const [record] = await db.insert(demos).values({
     userId: session.user.id,
     ...input,
     talkingHeadRegions: input.talkingHeadRegions || [],
   }).returning();
+
+  if (!record) {
+    throw new Error("Failed to create demo record");
+  }
+
+  // Trigger background task to analyze video if it's a video file
+  if (input.mimeType.startsWith('video/')) {
+    try {
+      await analyzeDemoVideoTask.trigger({
+        demoId: record.id,
+        videoUrl: input.url,
+        mimeType: input.mimeType,
+      });
+    } catch (error) {
+      console.error('Failed to trigger video analysis task:', error);
+      // Don't fail the demo creation if task trigger fails, just log the error
+    }
+  }
 
   return record;
 }

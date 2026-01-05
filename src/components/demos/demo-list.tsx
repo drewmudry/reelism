@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Video, Trash2, Edit2, Loader2, X, ChevronRight, ChevronLeft } from "lucide-react";
+import { Video, Trash2, Edit2, Loader2, X, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +10,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { deleteDemo, updateDemo } from "@/actions/demos";
 import { useRouter } from "next/navigation";
@@ -21,6 +31,7 @@ type Demo = {
   url: string;
   filename: string;
   title: string | null;
+  description: string | null;
   productId: string | null;
   width: number | null;
   height: number | null;
@@ -44,6 +55,7 @@ export function DemoList({ demos }: { demos: Demo[] }) {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [demoToDelete, setDemoToDelete] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVertical, setIsVertical] = useState<boolean | null>(null);
@@ -114,17 +126,22 @@ export function DemoList({ demos }: { demos: Demo[] }) {
     }
   };
 
-  const handleDelete = async (demoId: string) => {
-    if (!confirm("Are you sure you want to delete this demo?")) return;
-    setDeletingId(demoId);
+  const handleDeleteClick = (demoId: string) => {
+    setDemoToDelete(demoId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!demoToDelete) return;
+    setDeletingId(demoToDelete);
     try {
-      await deleteDemo(demoId);
+      await deleteDemo(demoToDelete);
       router.refresh();
     } catch (error) {
       console.error("Failed to delete demo:", error);
       alert("Failed to delete demo");
     } finally {
       setDeletingId(null);
+      setDemoToDelete(null);
     }
   };
 
@@ -183,7 +200,7 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                 className="h-8 w-8"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(demo.id);
+                  handleDeleteClick(demo.id);
                 }}
                 disabled={deletingId === demo.id}
               >
@@ -195,14 +212,27 @@ export function DemoList({ demos }: { demos: Demo[] }) {
               </Button>
             </div>
 
-            {/* Title overlay */}
-            {demo.title && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <p className="text-white text-sm font-medium truncate">
+            {/* Title and Analysis overlay */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+              {demo.title && (
+                <p className="text-white text-sm font-medium truncate mb-1">
                   {demo.title}
                 </p>
-              </div>
-            )}
+              )}
+              {demo.description ? (
+                <div className="flex items-start gap-1.5">
+                  <Sparkles className="h-3 w-3 text-purple-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-white/80 text-xs line-clamp-2">
+                    {demo.description}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 text-purple-400 animate-spin" />
+                  <p className="text-white/60 text-xs">Analyzing video...</p>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -389,6 +419,27 @@ export function DemoList({ demos }: { demos: Demo[] }) {
           </div>
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={demoToDelete !== null} onOpenChange={(open) => !open && setDemoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Demo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this demo? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

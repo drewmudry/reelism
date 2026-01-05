@@ -1,4 +1,4 @@
-import { GoogleGenAI, PersonGeneration, VideoGenerationReferenceType } from '@google/genai';
+import { GoogleGenAI, PersonGeneration, VideoGenerationReferenceType, createPartFromUri, createUserContent } from '@google/genai';
 import sharp from 'sharp';
 
 // Initialize the Google GenAI client
@@ -653,6 +653,155 @@ async function fetchAndNormalize(imageUrl: string): Promise<{ bytes: string; mim
     bytes: normalizedBuffer.toString('base64'),
     mimeType: normalizedMimeType,
   };
+}
+
+/**
+ * Analyze a video using Gemini Flash
+ * Downloads the video from the provided URL, uploads it to Google's File API,
+ * and analyzes it with the specified prompt.
+ * 
+ * @param videoUrl - URL of the video to analyze
+ * @param mimeType - MIME type of the video (e.g., 'video/mp4')
+ * @param prompt - Optional custom prompt for analysis (defaults to action-oriented description)
+ * @param productContext - Optional product context to include in the analysis
+ * @returns Promise resolving to the analysis text
+ * 
+ * @example
+ * ```typescript
+ * const analysis = await analyzeVideoWithGemini('https://example.com/video.mp4', 'video/mp4');
+ * console.log(analysis);
+ * ```
+ */
+export async function analyzeVideoWithGemini(
+  videoUrl: string,
+  mimeType: string = 'video/mp4',
+  prompt?: string,
+  productContext?: string
+): Promise<string> {
+  const defaultPrompt = productContext
+    ? `Analyze this video demo for the following product: ${productContext}.\n\nProvide a concise, action-oriented description of what is happening. Focus on specific visual beats: what the hands are doing, what the product looks like in motion, and the setting.\n\nOutput the description as 3 bullet points for my script generator.`
+    : "Analyze this video demo. Provide a concise, action-oriented description of what is happening. Focus on specific visual beats: what the hands are doing, what the product looks like in motion, and the setting. Limit the summary to 3 bullet points.";
+  
+  const analysisPrompt = prompt || defaultPrompt;
+
+  try {
+    // 1. Download the video from the URL
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+    }
+
+    const videoBuffer = await videoResponse.arrayBuffer();
+    
+    // 2. Upload video to Google's File API (required for large files)
+    // We need to write the buffer to a temporary file or use a Blob
+    // Since we're in Node.js, we'll use a temporary file approach
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const os = await import('os');
+    
+    const tempDir = os.tmpdir();
+    // Extract file extension from mimeType (e.g., 'video/mp4' -> 'mp4')
+    const mimeToExt: Record<string, string> = {
+      'video/mp4': 'mp4',
+      'video/webm': 'webm',
+      'video/quicktime': 'mov',
+      'video/x-msvideo': 'avi',
+      'video/x-matroska': 'mkv',
+    };
+    const ext = mimeToExt[mimeType] || mimeType.split('/')[1] || 'mp4';
+    const tempFilePath = path.join(tempDir, `video-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`);
+    
+    try {
+      // Write buffer to temp file
+      await fs.writeFile(tempFilePath, Buffer.from(videoBuffer));
+      
+      // Upload to Google File API
+      const uploadedFile = await ai.files.upload({
+        file: tempFilePath,
+        config: {
+          mimeType,
+          displayName: 'Product B-Roll',
+        },
+      });
+
+      // The upload result is the file object itself
+      const file = uploadedFile;
+
+      // Validate that required properties exist
+      if (!file.uri || !file.mimeType || !file.name) {
+        throw new Error('File upload failed: missing URI, MIME type, or name');
+      }
+
+      // 2. Poll for processing status
+      // AI models need a few seconds to "index" the video frames
+      let fileStatus = await ai.files.get({ name: file.name });
+      const maxWaitTime = 5 * 60 * 1000; // 5 minutes max wait
+      const startTime = Date.now();
+      const pollInterval = 2000; // Check every 2 seconds (matching Gemini example)
+
+      while (fileStatus.state === 'PROCESSING') {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > maxWaitTime) {
+          throw new Error('File processing timeout: file did not become ACTIVE within 5 minutes');
+        }
+
+        // Wait before checking again
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        fileStatus = await ai.files.get({ name: file.name });
+      }
+
+      if (fileStatus.state === 'FAILED') {
+        throw new Error('Video processing failed: file is in FAILED state');
+      }
+
+      if (fileStatus.state !== 'ACTIVE') {
+        throw new Error(`File is not in ACTIVE state: current state is ${fileStatus.state}`);
+      }
+
+      // 3. Generate content with the video using the standard API
+      // Use gemini-2.0-flash for video processing with multimodal capabilities
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.0-flash', // Stable model with video/multimodal support
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { fileData: { fileUri: file.uri, mimeType: file.mimeType } },
+              { text: analysisPrompt },
+            ],
+          },
+        ],
+        config: {
+          maxOutputTokens: 1024,
+          temperature: 0.4, // Lower temperature for more focused analysis
+        },
+      });
+
+      if (!result.text) {
+        throw new Error('No analysis text was generated');
+      }
+
+      // Clean up: delete the uploaded file from Google's servers
+      try {
+        await ai.files.delete({ name: file.name });
+      } catch (deleteError) {
+        console.warn('Failed to delete uploaded file from Google:', deleteError);
+      }
+
+      return result.text;
+    } finally {
+      // Clean up: delete the temporary file
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (unlinkError) {
+        console.warn('Failed to delete temporary file:', unlinkError);
+      }
+    }
+  } catch (error) {
+    console.error('Video analysis error:', error);
+    throw error;
+  }
 }
 
 /**
