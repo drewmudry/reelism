@@ -104,24 +104,37 @@ export function DemoModal() {
 
     try {
       // 1. Get presigned URL
+      console.log("[Demo Upload] Getting presigned URL for:", uploadedFile.name, uploadedFile.type);
       const { uploadUrl, publicUrl } = await getDemoUploadPresignedUrl(
         uploadedFile.name,
         uploadedFile.type
       );
+      console.log("[Demo Upload] Got presigned URL, public URL will be:", publicUrl);
 
       // 2. Upload to S3
-      await fetch(uploadUrl, {
+      console.log("[Demo Upload] Starting S3 upload...");
+      const response = await fetch(uploadUrl, {
         method: "PUT",
         body: uploadedFile,
-        headers: { "Content-Type": uploadedFile.type },
+        headers: {
+          "Content-Type": uploadedFile.type,
+        },
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[Demo Upload] S3 upload failed:", response.status, errorText);
+        throw new Error(`S3 upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      console.log("[Demo Upload] S3 upload successful!");
 
       // Store the uploaded URL and move to step 2 (region selection)
       setUploadedUrl(publicUrl);
       setStep(2);
     } catch (error) {
-      console.error("Upload failed", error);
-      alert("Upload failed. Check console.");
+      console.error("[Demo Upload] Upload failed:", error);
+      alert(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsUploading(false);
     }
@@ -182,7 +195,7 @@ export function DemoModal() {
   const handleContinueFromRegions = () => {
     // If vertical video, require at least one region
     if (isVertical && talkingHeadRegions.length === 0) {
-      alert("Please select at least one region for talking head placement. This is required for vertical videos.");
+      alert("Please select at least one overlay zone. This tells the AI where it can place talking head avatars on your video.");
       return;
     }
     setStep(3);
@@ -205,13 +218,24 @@ export function DemoModal() {
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
             <div
               className={`pointer-events-auto transition-all duration-500 ease-out w-full ${
-                hasRegions ? "max-w-[800px]" : "max-w-[400px]"
+                hasRegions ? "max-w-[900px]" : "max-w-[500px]"
               }`}
             >
               <div className="flex gap-4">
                 {/* Main Video Container */}
                 <div className="flex-shrink-0">
-                  <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-80">
+                  <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-[400px]">
+                    {/* Header */}
+                    <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-950/30">
+                      <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                        Select Overlay Zones
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isVertical
+                          ? "Tap where AI avatars can appear (required for vertical videos)"
+                          : "Tap where AI avatars can appear in your video"}
+                      </p>
+                    </div>
                     {uploadedUrl ? (
                       <>
                         <video

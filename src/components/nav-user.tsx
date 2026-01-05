@@ -2,7 +2,6 @@
 
 import {
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
   CreditCard,
   LogOut,
@@ -32,6 +31,7 @@ import {
 
 import { useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
+import { useSubscription } from "@/contexts/subscription-context"
 
 export function NavUser({
   user,
@@ -44,10 +44,15 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const { tier } = useSubscription()
 
   const handleLogout = async () => {
     await authClient.signOut()
     router.push("/sign-in")
+  }
+
+  const handleUpgrade = () => {
+    router.push("/app/billing")
   }
 
   return (
@@ -94,10 +99,17 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
+              {tier ? (
+                <DropdownMenuItem disabled>
+                  <Sparkles />
+                  {tier} Plan
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={handleUpgrade}>
+                  <Sparkles />
+                  Upgrade to Pro
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -105,7 +117,7 @@ export function NavUser({
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/app/billing")}>
                 <CreditCard />
                 Billing
               </DropdownMenuItem>

@@ -32,9 +32,15 @@ CREATE TABLE "user" (
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"image" text,
+	"stripe_customer_id" text,
+	"subscription_id" text,
+	"subscription_status" text,
+	"subscription_price_id" text,
+	"subscription_current_period_end" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "user_email_unique" UNIQUE("email")
+	CONSTRAINT "user_email_unique" UNIQUE("email"),
+	CONSTRAINT "user_stripe_customer_id_unique" UNIQUE("stripe_customer_id")
 );
 --> statement-breakpoint
 CREATE TABLE "verification" (

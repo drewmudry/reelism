@@ -7,6 +7,12 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  // Stripe subscription fields
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  subscriptionId: text("subscription_id"),
+  subscriptionStatus: text("subscription_status"), // 'active', 'canceled', 'past_due', 'trialing', etc.
+  subscriptionPriceId: text("subscription_price_id"),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

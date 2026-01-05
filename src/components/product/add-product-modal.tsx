@@ -8,32 +8,41 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AddProductViaUrl } from "./add-product-via-url";
 import { AddProductManually } from "./add-product-manually";
-import { ProductConfirmation } from "./product-confirmation";
+import { ProductHooksStep } from "./product-hooks-step";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface AddProductModalProps {
   onProductAdded?: () => void;
 }
 
+type ModalStep = "details" | "hooks";
+
+interface ProductData {
+  productId: string;
+  title: string;
+  description?: string;
+}
+
 export function AddProductModal({ onProductAdded }: AddProductModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"url" | "manual">("url");
-  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<ModalStep>("details");
+  const [productData, setProductData] = useState<ProductData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleProductCreated = (productId: string) => {
-    setCurrentProductId(productId);
+  const handleProductCreated = (productId: string, title: string, description?: string) => {
+    setProductData({ productId, title, description });
+    setCurrentStep("hooks");
     setError(null);
   };
 
-  const handleConfirm = () => {
-    setCurrentProductId(null);
+  const handleComplete = () => {
+    // Reset state and close modal
+    setProductData(null);
+    setCurrentStep("details");
     setIsOpen(false);
     // Dispatch event to refresh product list
     window.dispatchEvent(new CustomEvent("productAdded"));
@@ -41,13 +50,24 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
     onProductAdded?.();
   };
 
-  const handleCancel = () => {
-    setCurrentProductId(null);
-    setError(null);
+  const handleBack = () => {
+    // Go back to details step
+    setCurrentStep("details");
+    setProductData(null);
   };
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      // Reset state when closing
+      setProductData(null);
+      setCurrentStep("details");
+      setError(null);
+    }
   };
 
   return (
@@ -60,57 +80,39 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
         Add Product
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Product</DialogTitle>
+            <DialogTitle>
+              {currentStep === "details" ? "Add Product" : "Add Hooks"}
+            </DialogTitle>
             <DialogDescription>
-              Add a product by URL or manually upload details
+              {currentStep === "details"
+                ? "Add your product details"
+                : "Add attention-grabbing hooks for TikTok Shop videos"}
             </DialogDescription>
           </DialogHeader>
 
-          {currentProductId ? (
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Product Detected! Please confirm 👇</h3>
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
-              <ProductConfirmation
-                productId={currentProductId}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-              />
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
-          ) : (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "url" | "manual")}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="url">Via URL</TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
-              </TabsList>
-              
-              {error && (
-                <div className="mt-4 bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
-
-              <TabsContent value="url" className="mt-4">
-                <AddProductViaUrl
-                  onProductCreated={handleProductCreated}
-                  onError={handleError}
-                />
-              </TabsContent>
-
-              <TabsContent value="manual" className="mt-4">
-                <AddProductManually
-                  onProductCreated={handleProductCreated}
-                  onError={handleError}
-                />
-              </TabsContent>
-            </Tabs>
           )}
+
+          {currentStep === "details" ? (
+            <AddProductManually
+              onProductCreated={handleProductCreated}
+              onError={handleError}
+            />
+          ) : productData ? (
+            <ProductHooksStep
+              productId={productData.productId}
+              productTitle={productData.title}
+              productDescription={productData.description}
+              onComplete={handleComplete}
+              onBack={handleBack}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

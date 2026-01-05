@@ -70,11 +70,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar || undefined,
-        }} />
+        <NavUser
+          user={{
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar || undefined,
+          }}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

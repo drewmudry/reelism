@@ -17,6 +17,7 @@ export const products = pgTable(
     description: text("description"),
     price: numeric("price"),
     images: jsonb("images").$type<string[]>().default([]).notNull(),
+    hooks: jsonb("hooks").$type<string[]>().default([]).notNull(),
     parsed: boolean("parsed").default(false).notNull(),
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

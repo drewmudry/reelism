@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Video, Trash2, Edit2, Loader2, X, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { Video, Trash2, Edit2, Loader2, X, ChevronRight, ChevronLeft, Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -114,10 +114,10 @@ export function DemoList({ demos }: { demos: Demo[] }) {
 
   const handleContinueFromRegions = () => {
     if (isVertical && editRegions.length === 0) {
-      alert("Please select at least one region for talking head placement. This is required for vertical videos.");
+      alert("Please select at least one overlay zone. This tells the AI where it can place talking head avatars on your video.");
       return;
     }
-    setStep(2);
+    setStep(1); // Go back to the edit form
   };
 
   const handleBack = () => {
@@ -247,7 +247,7 @@ export function DemoList({ demos }: { demos: Demo[] }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
             <div
               className={`pointer-events-auto transition-all duration-500 ease-out ${
-                step === 2 && editRegions.length > 0 ? "max-w-[800px]" : step === 2 ? "max-w-[400px]" : step === 1 ? "max-w-[400px]" : "max-w-[400px]"
+                step === 2 && editRegions.length > 0 ? "max-w-[900px]" : step === 2 ? "max-w-[500px]" : step === 1 ? "max-w-[500px]" : "max-w-[500px]"
               }`}
             >
               <div className="flex gap-4">
@@ -255,7 +255,7 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                   <>
                     {/* Main Form Container */}
                     <div className="flex-shrink-0">
-                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-80">
+                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-[400px]">
                         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
                           <h3 className="text-lg font-semibold">Edit Demo</h3>
                           <p className="text-sm text-muted-foreground mt-1">
@@ -303,8 +303,11 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                           </div>
                           <div>
                             <label className="text-sm font-medium mb-2 block">
-                              Talking Head Regions
+                              Overlay Zones
                             </label>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Where AI avatars can appear on your video
+                            </p>
                             <Button
                               variant="outline"
                               onClick={() => setStep(2)}
@@ -312,8 +315,8 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                               disabled={isUpdating}
                             >
                               {editRegions.length > 0
-                                ? `Edit Regions (${editRegions.length} selected)`
-                                : "Edit Regions"}
+                                ? `Edit Zones (${editRegions.length} selected)`
+                                : "Select Zones"}
                               <ChevronRight className="h-4 w-4 ml-2" />
                             </Button>
                           </div>
@@ -340,8 +343,8 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                           <Loader2 size={18} className="animate-spin" />
                         ) : (
                           <>
+                            <Check size={18} />
                             <span className="text-xs hidden sm:inline">Save</span>
-                            <ChevronRight size={18} />
                           </>
                         )}
                       </button>
@@ -351,13 +354,15 @@ export function DemoList({ demos }: { demos: Demo[] }) {
                   <>
                     {/* Region Selection Step - Video Container */}
                     <div className="flex-shrink-0">
-                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-80">
-                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-                          <h3 className="text-lg font-semibold">Edit Regions</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
+                      <div className="bg-card rounded-lg overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 w-[400px]">
+                        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-950/30">
+                          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                            Edit Overlay Zones
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {isVertical
-                              ? "Select regions where it's safe to place a talking head. This is required for vertical videos."
-                              : "Optionally select regions for talking head placement."}
+                              ? "Tap where AI avatars can appear (required for vertical videos)"
+                              : "Tap where AI avatars can appear in your video"}
                           </p>
                         </div>
                         {editingDemo && (

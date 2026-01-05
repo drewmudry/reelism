@@ -470,7 +470,7 @@ export async function generateTextFlash(
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash', // Gemini 3 Flash
+      model: 'gemini-3-flash-preview', // Gemini 3 Flash
       contents: prompt,
       config: {
         maxOutputTokens,

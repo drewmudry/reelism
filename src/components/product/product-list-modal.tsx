@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Edit, ChevronLeft, ChevronRight, Plus, Loader2, Video } from "lucide-react";
+import { X, Edit, ChevronLeft, ChevronRight, Plus, Loader2, Video, Sparkles } from "lucide-react";
 import { ProductEditForm } from "./product-edit-form";
+import { ProductHooksEditor } from "./product-hooks-editor";
 import { updateProduct, getPresignedUrls } from "@/actions/products";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +16,7 @@ interface Product {
   description: string | null;
   price: number | null;
   images: string[];
+  hooks?: string[];
   parsed: boolean;
   error: string | null;
   createdAt: Date;
@@ -34,6 +36,7 @@ export function ProductListModal({
 }: ProductListModalProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingHooks, setIsEditingHooks] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAddingImages, setIsAddingImages] = useState(false);
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
@@ -84,11 +87,13 @@ export function ProductListModal({
 
   const handleEditClick = () => {
     setIsAddingImages(false);
+    setIsEditingHooks(false);
     setIsEditing(!isEditing);
   };
 
   const handleAddImagesClick = () => {
     setIsEditing(false);
+    setIsEditingHooks(false);
     if (!isAddingImages) {
       setIsAddingImages(true);
       // Trigger file picker after a short delay to ensure panel is open
@@ -98,6 +103,12 @@ export function ProductListModal({
     } else {
       setIsAddingImages(false);
     }
+  };
+
+  const handleEditHooksClick = () => {
+    setIsEditing(false);
+    setIsAddingImages(false);
+    setIsEditingHooks(!isEditingHooks);
   };
 
   const handleViewDemos = () => {
@@ -251,6 +262,27 @@ export function ProductListModal({
           </div>
         </div>
       )}
+
+      {/* Edit Hooks Panel */}
+      {isEditingHooks && (
+        <div className="w-[400px] mr-4 bg-card rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto max-h-[576px] animate-in slide-in-from-left-1/2">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Edit Hooks</h3>
+          </div>
+          <ProductHooksEditor
+            productId={product.id}
+            productTitle={product.title || ""}
+            productDescription={product.description || undefined}
+            initialHooks={product.hooks || []}
+            onSave={(updatedProduct) => {
+              onProductUpdated(updatedProduct);
+              setIsEditingHooks(false);
+            }}
+            onCancel={() => setIsEditingHooks(false)}
+          />
+        </div>
+      )}
     </>
   );
 
@@ -290,6 +322,20 @@ export function ProductListModal({
       </button>
 
       <button
+        onClick={handleEditHooksClick}
+        className={`h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border ${
+          isEditingHooks
+            ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+            : "bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
+        }`}
+        aria-label="Edit hooks"
+        title="Edit hooks for this product"
+      >
+        <Sparkles size={18} />
+        <span className="text-xs hidden sm:inline">{isEditingHooks ? "Done" : "Hooks"}</span>
+      </button>
+
+      <button
         onClick={handleViewDemos}
         className="h-10 rounded-full transition-all shadow-lg font-semibold flex items-center justify-center gap-2 px-3 border bg-card text-foreground hover:bg-muted border-zinc-200 dark:border-zinc-800"
         aria-label="View demos"
@@ -313,7 +359,7 @@ export function ProductListModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
         <div
           className={`pointer-events-auto transition-all duration-500 ease-out w-full ${
-            isEditing || isAddingImages ? "max-w-[900px]" : "max-w-[420px]"
+            isEditing || isAddingImages || isEditingHooks ? "max-w-[900px]" : "max-w-[420px]"
           }`}
         >
           <div className="flex gap-4">

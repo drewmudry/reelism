@@ -7,7 +7,7 @@ import { createProductManually, getPresignedUrls } from "@/actions/products";
 import { Loader2, Upload, X } from "lucide-react";
 
 interface AddProductManuallyProps {
-  onProductCreated: (productId: string) => void;
+  onProductCreated: (productId: string, title: string, description?: string) => void;
   onError?: (error: string) => void;
 }
 
@@ -153,13 +153,15 @@ export function AddProductManually({
     try {
       const imageUrls = uploadedImages.map((img) => img.publicUrl!);
       
+      const trimmedTitle = title.trim();
+      const trimmedDescription = description.trim() || undefined;
       const result = await createProductManually({
-        title: title.trim(),
-        description: description.trim() || undefined,
+        title: trimmedTitle,
+        description: trimmedDescription,
         price: price ? parseFloat(price) : undefined,
         imageUrls,
       });
-      onProductCreated(result.productId);
+      onProductCreated(result.productId, trimmedTitle, trimmedDescription);
       
       // Reset form
       setTitle("");

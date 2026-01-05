@@ -1,16 +1,21 @@
 "use client";
 
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 
-export default function SignInPage() {
+function SignInContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, isPending } = authClient.useSession();
 
-  // If user is already logged in, redirect to app
+  // Get the callback URL from query params, default to /app
+  const callbackUrl = searchParams.get("callbackUrl") || "/app";
+
+  // If user is already logged in, redirect to callback URL
   if (session && !isPending) {
-    router.push("/app");
+    router.push(callbackUrl);
     return null;
   }
 
@@ -36,7 +41,7 @@ export default function SignInPage() {
               onClick={() =>
                 authClient.signIn.social({
                   provider: "google",
-                  callbackURL: "/app",
+                  callbackURL: callbackUrl,
                 })
               }
               className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white px-6 text-base font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"
@@ -58,7 +63,7 @@ export default function SignInPage() {
               onClick={() =>
                 authClient.signIn.social({
                   provider: "discord",
-                  callbackURL: "/app",
+                  callbackURL: callbackUrl,
                 })
               }
               className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white px-6 text-base font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"
@@ -88,3 +93,16 @@ export default function SignInPage() {
   );
 }
 
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+          <div className="text-zinc-600 dark:text-zinc-400">Loading...</div>
+        </div>
+      }
+    >
+      <SignInContent />
+    </Suspense>
+  );
+}

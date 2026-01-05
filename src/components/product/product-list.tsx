@@ -13,6 +13,7 @@ interface Product {
   description: string | null;
   price: number | null;
   images: string[];
+  hooks?: string[];
   parsed: boolean;
   error: string | null;
   createdAt: Date;

@@ -5,12 +5,8 @@ import { headers } from "next/headers";
 import { db } from "@/index";
 import { products } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { parseProductTask } from "@/trigger/parse-product";
 import { getPresignedUploadUrl } from "@/lib/storage";
-
-export interface CreateProductFromUrlInput {
-  sourceUrl: string;
-}
+import { generateTextFlash } from "@/lib/ai";
 
 export interface CreateProductManuallyInput {
   title: string;
@@ -30,68 +26,12 @@ export interface UpdateProductInput {
   description?: string;
   price?: number;
   images?: string[];
+  hooks?: string[];
 }
 
-/**
- * Add a product via URL
- * Creates a product record with parsed=false and triggers a background job to parse it
- */
-export async function createProductFromUrl(input: CreateProductFromUrlInput) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session) {
-    throw new Error("Not authenticated");
-  }
-
-  try {
-    // Validate URL
-    let url: URL;
-    try {
-      url = new URL(input.sourceUrl);
-    } catch {
-      throw new Error("Invalid URL");
-    }
-
-    // Create product record with parsed=false
-    const [product] = await db
-      .insert(products)
-      .values({
-        userId: session.user.id,
-        type: "external",
-        sourceUrl: url.toString(),
-        parsed: false,
-        images: [],
-      })
-      .returning();
-
-    if (!product) {
-      throw new Error("Failed to create product record");
-    }
-
-    // Trigger background job to parse the product
-    try {
-      await parseProductTask.trigger({
-        productId: product.id,
-      });
-    } catch (triggerError) {
-      console.error("Failed to trigger parse product job:", triggerError);
-      // Update product with error but don't fail the request
-      await db
-        .update(products)
-        .set({
-          error: "Failed to start parsing job",
-          updatedAt: new Date(),
-        })
-        .where(eq(products.id, product.id));
-    }
-
-    return { productId: product.id };
-  } catch (error) {
-    console.error("Failed to create product from URL:", error);
-    throw error;
-  }
+export interface GenerateHooksInput {
+  title: string;
+  description?: string;
 }
 
 /**
@@ -201,6 +141,7 @@ export async function getProducts() {
       description: product.description,
       price: product.price ? parseFloat(product.price) : null,
       images: product.images,
+      hooks: product.hooks,
       parsed: product.parsed,
       error: product.error,
       createdAt: product.createdAt,
@@ -248,6 +189,7 @@ export async function getProductById(productId: string) {
       description: product.description,
       price: product.price ? parseFloat(product.price) : null,
       images: product.images,
+      hooks: product.hooks,
       parsed: product.parsed,
       error: product.error,
       createdAt: product.createdAt,
@@ -260,8 +202,72 @@ export async function getProductById(productId: string) {
 }
 
 /**
+ * Generate hooks for a product using AI
+ * Creates TikTok Shop style video hooks
+ */
+export async function generateProductHooks(input: GenerateHooksInput) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  try {
+    const prompt = `You are an expert TikTok Shop copywriter specializing in viral short-form video hooks. Generate 5 natural, engaging hooks for TikTok Shop-style short videos featuring this product:
+
+Product: ${input.title}
+${input.description ? `Description: ${input.description}` : ""}
+
+Requirements for each hook:
+- Must grab attention in the first 1-2 seconds
+- Natural and conversational tone (NOT salesy or clickbait)
+- Include action words and emotional triggers
+- Optimized for TikTok's fast-paced format
+- 6-15 words each
+- Should feel authentic and relatable
+- Can use questions, statements, or call-outs
+
+Return ONLY a valid JSON array of 5 strings, no other text:
+["hook1", "hook2", "hook3", "hook4", "hook5"]`;
+
+    const response = await generateTextFlash(prompt, {
+      temperature: 0.8,
+      maxOutputTokens: 1024,
+    });
+
+    // Parse the JSON response
+    let hooks: string[];
+    try {
+      // Extract JSON array from response (handle potential markdown code blocks)
+      const jsonMatch = response.text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error("No JSON array found in response");
+      }
+      hooks = JSON.parse(jsonMatch[0]);
+
+      if (!Array.isArray(hooks) || hooks.length === 0) {
+        throw new Error("Invalid hooks array");
+      }
+
+      // Ensure we have strings
+      hooks = hooks.filter((h): h is string => typeof h === "string" && h.trim().length > 0);
+    } catch (parseError) {
+      console.error("Failed to parse hooks response:", response.text);
+      throw new Error("Failed to parse generated hooks");
+    }
+
+    return { hooks };
+  } catch (error) {
+    console.error("Failed to generate product hooks:", error);
+    throw error;
+  }
+}
+
+/**
  * Update a product
- * Allows editing title, description, price, and images
+ * Allows editing title, description, price, images, and hooks
  */
 export async function updateProduct(input: UpdateProductInput) {
   const session = await auth.api.getSession({
@@ -305,6 +311,9 @@ export async function updateProduct(input: UpdateProductInput) {
     if (input.images !== undefined) {
       updateData.images = input.images;
     }
+    if (input.hooks !== undefined) {
+      updateData.hooks = input.hooks;
+    }
 
     const [updated] = await db
       .update(products)
@@ -324,6 +333,7 @@ export async function updateProduct(input: UpdateProductInput) {
       description: updated.description,
       price: updated.price ? parseFloat(updated.price) : null,
       images: updated.images,
+      hooks: updated.hooks,
       parsed: updated.parsed,
       error: updated.error,
       createdAt: updated.createdAt,
