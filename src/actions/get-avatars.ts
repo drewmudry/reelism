@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/index";
 import { avatars, generations } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, isNull } from "drizzle-orm";
 import { generateAvatarTask } from "@/trigger/generate-avatar";
 
 export async function getAvatars() {
@@ -17,13 +17,19 @@ export async function getAvatars() {
   }
 
   try {
-    const userAvatars = await db
+    // Get user's avatars OR curated avatars (where userId is null)
+    const allAvatars = await db
       .select()
       .from(avatars)
-      .where(eq(avatars.userId, session.user.id))
+      .where(
+        or(
+          eq(avatars.userId, session.user.id),
+          isNull(avatars.userId)
+        )
+      )
       .orderBy(desc(avatars.createdAt));
 
-    return userAvatars.map((avatar) => ({
+    return allAvatars.map((avatar) => ({
       id: avatar.id,
       imageUrl: avatar.imageUrl,
       prompt: avatar.prompt,

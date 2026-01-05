@@ -415,7 +415,7 @@ export async function generateTextPro(
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro', // Gemini 3 Pro
+      model: 'gemini-3-pro-preview', // Gemini 3 Pro
       contents: prompt,
       config: {
         maxOutputTokens,

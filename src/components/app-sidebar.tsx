@@ -25,6 +25,13 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const navMain = [
     {
+      title: "UGC Videos",
+      url: "/app/ugc",
+      icon: User,
+      isActive: false,
+      items: [],
+    },
+    {
       title: "Avatars",
       url: "/app/avatars",
       icon: User,
