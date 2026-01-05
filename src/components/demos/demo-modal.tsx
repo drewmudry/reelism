@@ -277,19 +277,11 @@ export function DemoModal() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === 1
-              ? "Upload Demo"
-              : step === 2
-              ? "Select Talking Head Regions"
-              : "Attach to Product"}
+            {step === 1 ? "Upload Demo" : "Attach to Product"}
           </DialogTitle>
           <DialogDescription>
             {step === 1
               ? "Upload a video demo to showcase your work."
-              : step === 2
-              ? isVertical
-                ? "Select regions where it's safe to place a talking head. This is required for vertical videos."
-                : "Optionally select regions for talking head placement. For horizontal videos, we'll place it above or below."
               : "Optionally attach this demo to a product."}
           </DialogDescription>
         </DialogHeader>
@@ -321,28 +313,8 @@ export function DemoModal() {
               </div>
             )}
           </div>
-        ) : step === 2 ? (
-          <div className="space-y-4">
-            {uploadedUrl && (
-              <>
-                <video
-                  ref={videoRef}
-                  src={uploadedUrl}
-                  className="hidden"
-                  preload="metadata"
-                />
-                <VideoRegionSelector
-                  videoUrl={uploadedUrl}
-                  regions={talkingHeadRegions}
-                  onRegionsChange={setTalkingHeadRegions}
-                  isRequired={isVertical === true}
-                  showSidePanel={false}
-                  onSidePanelRender={setRegionsSidePanel}
-                />
-              </>
-            )}
-          </div>
         ) : (
+          // Step 3: Attach to Product
           <div className="space-y-4">
             <div>
               <label
