@@ -2,8 +2,10 @@ import { GoogleGenAI, PersonGeneration, VideoGenerationReferenceType, createPart
 import sharp from 'sharp';
 
 // Initialize the Google GenAI client
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+export const ai = new GoogleGenAI({
+  vertexai: true,
+  project: "gen-lang-client-0378754748",
+  location: 'us-central1', 
 });
 
 /**
@@ -188,7 +190,7 @@ export async function generateImage(
     // Fallback to Imagen model if Gemini image model is not available
     try {
       const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
+        model: 'gemini-3-pro-image-preview',
         prompt,
         config: {
           numberOfImages,

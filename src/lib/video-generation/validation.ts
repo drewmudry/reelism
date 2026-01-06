@@ -58,6 +58,30 @@ export function validatePlan(
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // Normalize and fix common issues before validation
+  if (plan.veoCalls) {
+    for (const veoCall of plan.veoCalls) {
+      // Normalize sourceImageType to lowercase and fix common variations
+      if (typeof veoCall.sourceImageType === "string") {
+        const normalized = veoCall.sourceImageType.toLowerCase().trim();
+        if (normalized === "avatar" || normalized === "composite" || normalized === "product") {
+          veoCall.sourceImageType = normalized as "avatar" | "composite" | "product";
+        } else {
+          // Try to infer from sourceImageRef
+          if (veoCall.sourceImageRef?.toUpperCase().startsWith("AVATAR")) {
+            veoCall.sourceImageType = "avatar";
+          } else if (veoCall.sourceImageRef?.toLowerCase().startsWith("composite")) {
+            veoCall.sourceImageType = "composite";
+          } else if (veoCall.sourceImageRef?.toUpperCase().startsWith("PRODUCT")) {
+            veoCall.sourceImageType = "product";
+          } else {
+            errors.push(`Invalid sourceImageType "${veoCall.sourceImageType}" for veoCall ${veoCall.callId}. Expected one of "avatar"|"composite"|"product". sourceImageRef: ${veoCall.sourceImageRef}`);
+          }
+        }
+      }
+    }
+  }
+
   // Schema validation
   const schemaResult = PlanSchema.safeParse(plan);
   if (!schemaResult.success) {
@@ -70,6 +94,14 @@ export function validatePlan(
   }
 
   // Semantic validation
+
+  // Check for brollVeoCallId references and ensure they exist in veoCalls
+  const veoCallIdsSet = new Set(plan.veoCalls.map((v) => v.callId));
+  for (const segment of plan.segments) {
+    if (segment.brollVeoCallId && !veoCallIdsSet.has(segment.brollVeoCallId)) {
+      errors.push(`Segment ${segment.segmentIndex} references non-existent brollVeoCallId: ${segment.brollVeoCallId}`);
+    }
+  }
 
   // Check Veo call count
     const overlayCount = plan.segments.filter(s => s.overlayTalkingHead).length;
@@ -127,9 +159,9 @@ export function validatePlan(
   }
 
   // Check clips reference valid Veo calls
-  const veoCallIds = new Set(plan.veoCalls.map((v) => v.callId));
+  const veoCallIdsForClips = new Set(plan.veoCalls.map((v) => v.callId));
   for (const clip of plan.clips) {
-    if (!veoCallIds.has(clip.veoCallId)) {
+    if (!veoCallIdsForClips.has(clip.veoCallId)) {
       errors.push(`Clip ${clip.clipId} references non-existent Veo call: ${clip.veoCallId}`);
     }
     if (clip.startTime >= clip.endTime) {

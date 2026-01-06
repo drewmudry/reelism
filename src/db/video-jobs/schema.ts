@@ -35,6 +35,10 @@ export const videoJobs = pgTable(
     // Generated assets (URLs)
     compositeImageIds: jsonb("composite_image_ids").$type<string[]>().default([]),
     veoClipUrls: jsonb("veo_clip_urls").$type<string[]>().default([]),
+    
+    // Step tracking for resumable pipeline
+    completedCompositeIds: jsonb("completed_composite_ids").$type<string[]>().default([]),
+    completedVeoCallIds: jsonb("completed_veo_call_ids").$type<string[]>().default([]),
 
     // Final output
     finalVideoUrl: text("final_video_url"),

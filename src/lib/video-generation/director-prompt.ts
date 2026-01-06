@@ -55,6 +55,9 @@ You have a budget of up to 3 Veo calls (8 seconds each). You MUST follow one of 
 - **Segment 2 (12-20s)**: Demo B. overlayTalkingHead: true. Uses **veo_3** over Demo 2.
 - **Segment 3 (20-24s)**: CTA. Uses **veo_1 [4-8s]**.
 
+**CRITICAL: Visual Variety Requirement**
+When the same veoCallId is used for multiple segments (e.g., veo_1 for both hook and CTA), you MUST specify distinct visual changes between those time ranges in the veoCall prompt. The same exact shot cannot be reused - there must be clear visual differentiation (camera angle, location, position, etc.). See "Veo Prompt Guidelines (Multi-Scene)" below for detailed requirements and examples.
+
 ### Step 3: Sync-Scripting Logic
 
 When using "demo_broll", you MUST look at the "Action" timestamps in the Demo analysis. Write script lines that reference specific visual beats.
@@ -67,7 +70,9 @@ When using "demo_broll", you MUST look at the "Action" timestamps in the Demo an
 - **talking_head**: Standard full-screen avatar.
 - **demo_broll + overlay**: "Reaction" style. Avatar (veoCallId) appears in a bubble over user footage (demoId).
 - **virtual_broll + overlay**: Avatar (veoCallId) appears over AI-generated product footage (brollVeoCallId).
-    - *For Digital Products*: Generate b-roll of hands interacting with a glowing smartphone/tablet screen.
+    - **CRITICAL**: Virtual b-roll MUST be set in organic, realistic locations that feel authentic to UGC. Examples: product on a coffee table, desk, kitchen counter, bedside table, or other natural home/work environments. Avoid floating products or abstract backgrounds.
+    - *For Digital Products*: Generate b-roll of hands interacting with a smartphone/tablet screen placed naturally on a desk, coffee table, or similar organic surface.
+    - *For Physical Products*: Show the product naturally positioned in a real-world setting (e.g., makeup on a vanity, tech product on a desk, book on a coffee table).
 
 ---
 
@@ -121,7 +126,7 @@ Return ONLY valid JSON:
       "callId": "veo_1",
       "sourceImageType": "composite",
       "sourceImageRef": "composite_1",
-      "prompt": "0-4s: [Action] saying [Hook] \n\n then 5-8s: [Action] saying [CTA]"
+      "prompt": "animate this so for 0-4seconds, close-up front-facing in bright natural lighting, she is saying: \"[Hook]\"\n\nthen 5-8seconds, make it so medium shot from slight side angle with softer indoor lighting, she is saying: \"[CTA]\""
     },
     {
       "callId": "veo_2",
@@ -141,12 +146,40 @@ Return ONLY valid JSON:
 
 ## Veo Prompt Guidelines (Multi-Scene)
 
+When a single veoCallId generates multiple clips (e.g., veo_1 used for both 0-4s and 4-8s), you MUST specify distinct visual changes between time ranges. The same exact shot cannot be reused - viewers will notice repetition.
+
+### Required Visual Variety
+
+When reusing the same veoCallId for different segments, you MUST change at least ONE of the following:
+
+1. **Camera Angle**: Change from close-up to medium shot, or shift from front-facing to slight side angle, or move from eye-level to slightly above/below
+2. **Location/Background**: Change the setting (different room, different background, move from indoor to outdoor, or shift position within same space)
+3. **Lighting**: Adjust lighting conditions (brighter/darker, different light source direction, time of day feel)
+4. **Position/Posture**: Change how the avatar is positioned (sitting to standing, leaning forward to leaning back, different hand positions)
+5. **Camera Movement**: Specify subtle camera movement (slight push in, pull out, or gentle pan)
+
+**Examples of Good Visual Variety:**
+- "0-4s: Close-up front-facing, saying [Hook] in bright natural lighting"
+- "4-8s: Medium shot from slight side angle, saying [CTA] with softer indoor lighting, leaning back slightly"
+
+**Examples of Bad (Too Similar):**
+- "0-4s: Front-facing, saying [Hook]"
+- "4-8s: Front-facing, saying [CTA]" ❌ (No visual change)
+
+### Format Requirements
+
 You MUST use clear spacing and newlines for scene changes within an 8s call.
 
 **Format:**
-animate this so for 0-4seconds she is saying:
+animate this so for 0-4seconds, [CAMERA ANGLE/LOCATION/LIGHTING SPECIFICATION], she is saying:
 "[Script]"
 
-then 5-8seconds, make it so she is [New Setting/Action].
-saying:
-"[Script]"`;
+then 5-8seconds, make it so [DIFFERENT CAMERA ANGLE/LOCATION/LIGHTING SPECIFICATION], she is saying:
+"[Script]"
+
+**Example:**
+animate this so for 0-4seconds, close-up front-facing in bright natural lighting, she is saying:
+"Wait until you see this!"
+\n\n
+then 5-8seconds, make it so medium shot from slight side angle with softer indoor lighting, she is saying:
+"Get yours now in the link below!"`;

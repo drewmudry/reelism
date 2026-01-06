@@ -11,7 +11,6 @@ import {
   Play,
   CheckCircle2,
   XCircle,
-  AlertCircle
 } from "lucide-react";
 import { 
   generateCompositeImageForJob,
@@ -19,6 +18,10 @@ import {
   deleteCompositeImage,
   deleteVeoClip,
   getCompositeImagesForJob,
+  getJobProgress,
+  triggerSequentialGeneration,
+  triggerCompositeGeneration,
+  triggerVeoGeneration,
 } from "@/actions/video-jobs-manual";
 import { getVideoJob } from "@/actions/video-jobs";
 import type { VideoGenerationPlan } from "@/types/video-generation";
@@ -29,8 +32,10 @@ interface VideoJob {
   tone: string;
   targetDuration: number;
   directorPlan: unknown;
-  compositeImageIds: string[];
-  veoClipUrls: string[];
+  compositeImageIds: string[] | null;
+  veoClipUrls: string[] | null;
+  completedCompositeIds?: string[] | null;
+  completedVeoCallIds?: string[] | null;
   product?: {
     id: string;
     title: string | null;
@@ -68,6 +73,32 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
   const [generatingVeo, setGeneratingVeo] = useState<string | null>(null);
   const [deletingComposite, setDeletingComposite] = useState<string | null>(null);
   const [deletingVeo, setDeletingVeo] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{
+    compositesCompleted: number;
+    compositesTotal: number;
+    veoCallsCompleted: number;
+    veoCallsTotal: number;
+    canGenerateVeo: boolean;
+    canAssemble: boolean;
+  } | null>(null);
+  const [generatingAllComposites, setGeneratingAllComposites] = useState(false);
+  const [generatingAllVeo, setGeneratingAllVeo] = useState(false);
+  const [generatingSequential, setGeneratingSequential] = useState(false);
+
+  // Load progress
+  useEffect(() => {
+    async function loadProgress() {
+      try {
+        const prog = await getJobProgress(job.id);
+        setProgress(prog);
+      } catch (err) {
+        console.error("Error loading progress:", err);
+      }
+    }
+    if (plan) {
+      loadProgress();
+    }
+  }, [plan, job.id, job.completedCompositeIds, job.completedVeoCallIds]);
 
   // Load composite images
   useEffect(() => {
@@ -78,9 +109,10 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
         const dbComposites = await getCompositeImagesForJob(job.id);
         const compositeMap = new Map<string, CompositeImage>();
         
-        for (const compositeId of job.compositeImageIds as string[]) {
+        const compositeIds = job.compositeImageIds || [];
+        for (const compositeId of compositeIds) {
           const dbComposite = dbComposites.find((c) => c.id === compositeId);
-          const taskIndex = (job.compositeImageIds as string[]).indexOf(compositeId);
+          const taskIndex = compositeIds.indexOf(compositeId);
           const task = plan.imageGeneration[taskIndex];
           
           if (task) {
@@ -105,8 +137,9 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
     if (!plan) return;
 
     const clipMap = new Map<string, VeoClip>();
+    const veoClipUrls = job.veoClipUrls || [];
     for (const veoCall of plan.veoCalls) {
-      const existingUrl = (job.veoClipUrls as string[] || []).find((url, idx) => {
+      const existingUrl = veoClipUrls.find((url, idx) => {
         // Simple matching - in real implementation, you'd track which URL corresponds to which callId
         return idx === plan.veoCalls.indexOf(veoCall);
       });
@@ -120,7 +153,7 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
       });
     }
     setVeoClips(clipMap);
-  }, [plan, job.veoClipUrls]);
+  }, [plan, job.veoClipUrls, job.id]);
 
   async function handleGenerateComposite(compositeId: string) {
     setGeneratingComposite(compositeId);
@@ -140,9 +173,16 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
         return updated;
       });
 
-      // Refresh job
+      // Refresh job and progress
       const updatedJob = await getVideoJob(job.id);
-      setJob(updatedJob);
+      setJob({
+        ...updatedJob,
+        compositeImageIds: updatedJob.compositeImageIds || [],
+        veoClipUrls: updatedJob.veoClipUrls || [],
+      });
+      
+      const prog = await getJobProgress(job.id);
+      setProgress(prog);
     } catch (err) {
       console.error("Error generating composite:", err);
       alert(err instanceof Error ? err.message : "Failed to generate composite");
@@ -169,9 +209,16 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
         return updated;
       });
 
-      // Refresh job
+      // Refresh job and progress
       const updatedJob = await getVideoJob(job.id);
-      setJob(updatedJob);
+      setJob({
+        ...updatedJob,
+        compositeImageIds: updatedJob.compositeImageIds || [],
+        veoClipUrls: updatedJob.veoClipUrls || [],
+      });
+      
+      const prog = await getJobProgress(job.id);
+      setProgress(prog);
     } catch (err) {
       console.error("Error generating Veo clip:", err);
       alert(err instanceof Error ? err.message : "Failed to generate Veo clip");
@@ -199,9 +246,16 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
         return updated;
       });
 
-      // Refresh job
+      // Refresh job and progress
       const updatedJob = await getVideoJob(job.id);
-      setJob(updatedJob);
+      setJob({
+        ...updatedJob,
+        compositeImageIds: updatedJob.compositeImageIds || [],
+        veoClipUrls: updatedJob.veoClipUrls || [],
+      });
+      
+      const prog = await getJobProgress(job.id);
+      setProgress(prog);
     } catch (err) {
       console.error("Error deleting composite:", err);
       alert(err instanceof Error ? err.message : "Failed to delete composite");
@@ -232,14 +286,93 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
         return updated;
       });
 
-      // Refresh job
+      // Refresh job and progress
       const updatedJob = await getVideoJob(job.id);
-      setJob(updatedJob);
+      setJob({
+        ...updatedJob,
+        compositeImageIds: updatedJob.compositeImageIds || [],
+        veoClipUrls: updatedJob.veoClipUrls || [],
+      });
+      
+      const prog = await getJobProgress(job.id);
+      setProgress(prog);
     } catch (err) {
       console.error("Error deleting Veo clip:", err);
       alert(err instanceof Error ? err.message : "Failed to delete Veo clip");
     } finally {
       setDeletingVeo(null);
+    }
+  }
+
+  async function handleGenerateAllComposites() {
+    setGeneratingAllComposites(true);
+    try {
+      await triggerCompositeGeneration(job.id);
+      alert("Composite generation started in background. Progress will update automatically.");
+      // Refresh after a delay
+      setTimeout(async () => {
+        const updatedJob = await getVideoJob(job.id);
+        setJob({
+          ...updatedJob,
+          compositeImageIds: updatedJob.compositeImageIds || [],
+          veoClipUrls: updatedJob.veoClipUrls || [],
+        });
+        const prog = await getJobProgress(job.id);
+        setProgress(prog);
+      }, 2000);
+    } catch (err) {
+      console.error("Error triggering composite generation:", err);
+      alert(err instanceof Error ? err.message : "Failed to start composite generation");
+    } finally {
+      setGeneratingAllComposites(false);
+    }
+  }
+
+  async function handleGenerateAllVeo() {
+    setGeneratingAllVeo(true);
+    try {
+      await triggerVeoGeneration(job.id);
+      alert("Veo clip generation started in background. Progress will update automatically.");
+      // Refresh after a delay
+      setTimeout(async () => {
+        const updatedJob = await getVideoJob(job.id);
+        setJob({
+          ...updatedJob,
+          compositeImageIds: updatedJob.compositeImageIds || [],
+          veoClipUrls: updatedJob.veoClipUrls || [],
+        });
+        const prog = await getJobProgress(job.id);
+        setProgress(prog);
+      }, 2000);
+    } catch (err) {
+      console.error("Error triggering Veo generation:", err);
+      alert(err instanceof Error ? err.message : "Failed to start Veo generation");
+    } finally {
+      setGeneratingAllVeo(false);
+    }
+  }
+
+  async function handleGenerateSequential() {
+    setGeneratingSequential(true);
+    try {
+      await triggerSequentialGeneration(job.id);
+      alert("Sequential generation started: composites first, then Veo clips. Progress will update automatically.");
+      // Refresh after a delay
+      setTimeout(async () => {
+        const updatedJob = await getVideoJob(job.id);
+        setJob({
+          ...updatedJob,
+          compositeImageIds: updatedJob.compositeImageIds || [],
+          veoClipUrls: updatedJob.veoClipUrls || [],
+        });
+        const prog = await getJobProgress(job.id);
+        setProgress(prog);
+      }, 2000);
+    } catch (err) {
+      console.error("Error triggering sequential generation:", err);
+      alert(err instanceof Error ? err.message : "Failed to start sequential generation");
+    } finally {
+      setGeneratingSequential(false);
     }
   }
 
@@ -267,7 +400,7 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-sm text-muted-foreground">Product</p>
               <p className="font-medium">{job.product?.title || "Untitled"}</p>
@@ -278,12 +411,119 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Veo Calls</p>
-              <p className="font-medium">{plan.veoCalls.length}</p>
+              <p className="font-medium">
+                {progress ? `${progress.veoCallsCompleted}/${progress.veoCallsTotal}` : plan.veoCalls.length}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Composite Images</p>
-              <p className="font-medium">{plan.imageGeneration.length}</p>
+              <p className="font-medium">
+                {progress ? `${progress.compositesCompleted}/${progress.compositesTotal}` : plan.imageGeneration.length}
+              </p>
             </div>
+          </div>
+          
+          {/* Progress Indicators */}
+          {progress && (
+            <div className="space-y-2 pt-4 border-t">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Composite Images</span>
+                  <span>{progress.compositesCompleted}/{progress.compositesTotal}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${(progress.compositesCompleted / Math.max(progress.compositesTotal, 1)) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Veo Clips</span>
+                  <span>{progress.veoCallsCompleted}/{progress.veoCallsTotal}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-green-600 h-2 rounded-full transition-all"
+                    style={{ width: `${(progress.veoCallsCompleted / Math.max(progress.veoCallsTotal, 1)) * 100}%` }}
+                  />
+                </div>
+              </div>
+              {!progress.canGenerateVeo && progress.compositesTotal > 0 && (
+                <p className="text-sm text-amber-600 mt-2">
+                  ⚠️ Generate all required composite images before generating Veo clips
+                </p>
+              )}
+              {progress.canAssemble && (
+                <p className="text-sm text-green-600 mt-2">
+                  ✅ All clips generated! Ready to assemble video.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Generation Controls */}
+          <div className="pt-4 border-t mt-4 space-y-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={handleGenerateSequential}
+                disabled={generatingSequential || generatingAllComposites || generatingAllVeo}
+                size="sm"
+                className="flex-1"
+              >
+                {generatingSequential ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Generate All (Composites → Veo)
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleGenerateAllComposites}
+                disabled={generatingAllComposites || generatingSequential || progress?.compositesCompleted === progress?.compositesTotal}
+                variant="outline"
+                size="sm"
+              >
+                {generatingAllComposites ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Generate Composites Only
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleGenerateAllVeo}
+                disabled={generatingAllVeo || generatingSequential || !progress?.canGenerateVeo || progress?.veoCallsCompleted === progress?.veoCallsTotal}
+                variant="outline"
+                size="sm"
+              >
+                {generatingAllVeo ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Video className="w-4 h-4 mr-2" />
+                    Generate Veo Clips Only
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use these buttons to generate assets in Trigger.dev background tasks. You can also generate individual items below.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -304,6 +544,7 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
             <div className="space-y-4">
               {Array.from(composites.entries()).map(([compositeId, composite]) => {
                 const isGenerated = !!composite.imageUrl;
+                const isCompleted = (job.completedCompositeIds || []).includes(compositeId);
                 const isGenerating = generatingComposite === compositeId;
                 const isDeleting = deletingComposite === compositeId;
 
@@ -315,8 +556,10 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-medium">{composite.description}</h4>
-                        {isGenerated ? (
+                        {isCompleted ? (
                           <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : isGenerated ? (
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
                         ) : (
                           <XCircle className="w-4 h-4 text-gray-400" />
                         )}
@@ -418,8 +661,22 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
             <div className="space-y-4">
               {Array.from(veoClips.entries()).map(([veoCallId, clip]) => {
                 const isGenerated = !!clip.url;
+                const isCompleted = (job.completedVeoCallIds || []).includes(veoCallId);
                 const isGenerating = generatingVeo === veoCallId;
                 const isDeleting = deletingVeo === veoCallId;
+                
+                // Check if this veo call requires a composite that's not ready
+                const requiresComposite = clip.sourceImageType === "composite";
+                const requiredCompositeTask = plan.imageGeneration.find(
+                  (ig) => ig.compositeId === clip.sourceImageRef
+                );
+                const requiredCompositeId = requiredCompositeTask
+                  ? (job.compositeImageIds || [])[
+                      plan.imageGeneration.findIndex((ig) => ig.compositeId === clip.sourceImageRef)
+                    ]
+                  : null;
+                const requiredCompositeReady = !requiresComposite || 
+                  (requiredCompositeId && (job.completedCompositeIds || []).includes(requiredCompositeId));
 
                 return (
                   <div
@@ -429,14 +686,19 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-medium">Veo Call: {veoCallId}</h4>
-                        {isGenerated ? (
+                        {isCompleted ? (
                           <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : isGenerated ? (
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
                         ) : (
                           <XCircle className="w-4 h-4 text-gray-400" />
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
                         Source: {clip.sourceImageType} ({clip.sourceImageRef})
+                        {!requiredCompositeReady && requiresComposite && (
+                          <span className="text-amber-600 ml-2">⚠️ Required composite not ready</span>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground mb-2 font-mono bg-muted p-2 rounded">
                         {clip.prompt.substring(0, 200)}...
@@ -457,8 +719,9 @@ export function VideoJobManager({ initialJob }: { initialJob: VideoJob }) {
                       {!isGenerated ? (
                         <Button
                           onClick={() => handleGenerateVeo(veoCallId)}
-                          disabled={isGenerating}
+                          disabled={isGenerating || !requiredCompositeReady}
                           size="sm"
+                          title={!requiredCompositeReady ? "Required composite image must be generated first" : ""}
                         >
                           {isGenerating ? (
                             <>

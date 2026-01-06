@@ -8,7 +8,7 @@ import { getVideoJob } from "@/actions/video-jobs";
 export default async function VideoJobPage({
   params,
 }: {
-  params: { jobId: string };
+  params: Promise<{ jobId: string }>;
 }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -18,7 +18,8 @@ export default async function VideoJobPage({
     redirect("/sign-in");
   }
 
-  const job = await getVideoJob(params.jobId);
+  const { jobId } = await params;
+  const job = await getVideoJob(jobId);
 
   return (
     <>
@@ -26,7 +27,7 @@ export default async function VideoJobPage({
         breadcrumbs={[
           { label: "Dashboard", href: "/app" },
           { label: "UGC Videos", href: "/app/ugc" },
-          { label: `Job ${params.jobId.slice(0, 8)}...` },
+          { label: `Job ${jobId.slice(0, 8)}...` },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

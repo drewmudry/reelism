@@ -9,7 +9,10 @@ import { callDirector } from "@/lib/video-generation/director";
 import { validatePlan } from "@/lib/video-generation/validation";
 import { generateCompositeImage } from "@/lib/video-generation/composite";
 import { generateVeoClip } from "@/lib/video-generation/veo";
+import { tasks } from "@trigger.dev/sdk/v3";
 import type { VideoGenerationPlan, DirectorInput } from "@/types/video-generation";
+import { generateCompositesTask } from "@/trigger/generate-composites";
+import { generateVeoClipsTask } from "@/trigger/generate-veo-clips";
 
 /**
  * Create a video job and get the director plan, but don't generate assets yet
@@ -217,6 +220,15 @@ export async function generateCompositeImageForJob(params: {
     .set({ imageUrl })
     .where(eq(compositeImages.id, params.compositeId));
 
+  // Track completion
+  const completedIds = (job.completedCompositeIds as string[]) || [];
+  if (!completedIds.includes(params.compositeId)) {
+    await db
+      .update(videoJobs)
+      .set({ completedCompositeIds: [...completedIds, params.compositeId] })
+      .where(eq(videoJobs.id, params.jobId));
+  }
+
   return { imageUrl, compositeId: params.compositeId };
 }
 
@@ -314,6 +326,15 @@ export async function generateVeoClipForJob(params: {
       .where(eq(videoJobs.id, params.jobId));
   }
 
+  // Track completion
+  const completedIds = (job.completedVeoCallIds as string[]) || [];
+  if (!completedIds.includes(params.veoCallId)) {
+    await db
+      .update(videoJobs)
+      .set({ completedVeoCallIds: [...completedIds, params.veoCallId] })
+      .where(eq(videoJobs.id, params.jobId));
+  }
+
   return { url, veoCallId: params.veoCallId };
 }
 
@@ -351,9 +372,18 @@ export async function deleteCompositeImage(params: {
   const updatedIds = (job.compositeImageIds as string[]).filter(
     (id) => id !== params.compositeId
   );
+  
+  // Remove from completed list
+  const completedIds = ((job.completedCompositeIds as string[]) || []).filter(
+    (id) => id !== params.compositeId
+  );
+  
   await db
     .update(videoJobs)
-    .set({ compositeImageIds: updatedIds })
+    .set({ 
+      compositeImageIds: updatedIds,
+      completedCompositeIds: completedIds,
+    })
     .where(eq(videoJobs.id, params.jobId));
 
   return { success: true };
@@ -383,11 +413,212 @@ export async function deleteVeoClip(params: {
   const currentUrls = (job.veoClipUrls as string[]) || [];
   const updatedUrls = currentUrls.filter((url) => url !== params.veoClipUrl);
   
+  // Find and remove the corresponding veoCallId from completed list
+  // We need to match by URL since we don't have the callId here
+  // This is a limitation - we'll need to track URL to callId mapping better
+  // For now, we'll just remove the URL
+  const plan = job.directorPlan as unknown as VideoGenerationPlan;
+  let veoCallIdToRemove: string | null = null;
+  
+  if (plan?.veoCalls) {
+    // Try to find which callId this URL belongs to
+    // This is approximate - in a real system you'd track this better
+    const urlIndex = currentUrls.indexOf(params.veoClipUrl);
+    if (urlIndex >= 0 && urlIndex < plan.veoCalls.length) {
+      veoCallIdToRemove = plan.veoCalls[urlIndex].callId;
+    }
+  }
+  
+  const completedIds = ((job.completedVeoCallIds as string[]) || []).filter(
+    (id) => id !== veoCallIdToRemove
+  );
+  
   await db
     .update(videoJobs)
-    .set({ veoClipUrls: updatedUrls })
+    .set({ 
+      veoClipUrls: updatedUrls,
+      completedVeoCallIds: completedIds,
+    })
     .where(eq(videoJobs.id, params.jobId));
 
   return { success: true };
+}
+
+/**
+ * Get all composite images for a job
+ */
+export async function getCompositeImagesForJob(jobId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const job = await db.query.videoJobs.findFirst({
+    where: eq(videoJobs.id, jobId),
+  });
+
+  if (!job || job.userId !== session.user.id) {
+    throw new Error("Job not found");
+  }
+
+  const compositeIds = (job.compositeImageIds as string[]) || [];
+  if (compositeIds.length === 0) {
+    return [];
+  }
+
+  const composites = await db.query.compositeImages.findMany({
+    where: inArray(compositeImages.id, compositeIds),
+  });
+
+  return composites;
+}
+
+/**
+ * Get pipeline progress for a job
+ */
+export async function getJobProgress(jobId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const job = await db.query.videoJobs.findFirst({
+    where: eq(videoJobs.id, jobId),
+  });
+
+  if (!job || job.userId !== session.user.id) {
+    throw new Error("Job not found");
+  }
+
+  if (!job.directorPlan) {
+    return {
+      planningCompleted: false,
+      compositesCompleted: 0,
+      compositesTotal: 0,
+      veoCallsCompleted: 0,
+      veoCallsTotal: 0,
+      canGenerateVeo: false,
+      canAssemble: false,
+    };
+  }
+
+  const plan = job.directorPlan as unknown as VideoGenerationPlan;
+  const completedComposites = (job.completedCompositeIds as string[]) || [];
+  const completedVeoCalls = (job.completedVeoCallIds as string[]) || [];
+  
+  const compositesTotal = plan.imageGeneration.length;
+  const compositesCompleted = completedComposites.length;
+  
+  const veoCallsTotal = plan.veoCalls.length;
+  const veoCallsCompleted = completedVeoCalls.length;
+
+  // Check if all required composites are done for veo generation
+  const requiredComposites = new Set<string>();
+  for (const veoCall of plan.veoCalls) {
+    if (veoCall.sourceImageType === "composite") {
+      requiredComposites.add(veoCall.sourceImageRef);
+    }
+  }
+  
+  const requiredCompositeIds = plan.imageGeneration
+    .filter((ig) => requiredComposites.has(ig.compositeId))
+    .map((ig, idx) => (job.compositeImageIds as string[])[idx])
+    .filter(Boolean);
+  
+  const allRequiredCompositesDone = requiredCompositeIds.every((id) =>
+    completedComposites.includes(id)
+  );
+
+  // Can assemble if all veo calls are done
+  const canAssemble = veoCallsCompleted === veoCallsTotal && veoCallsTotal > 0;
+
+  return {
+    planningCompleted: true,
+    compositesCompleted,
+    compositesTotal,
+    veoCallsCompleted,
+    veoCallsTotal,
+    canGenerateVeo: allRequiredCompositesDone || requiredComposites.size === 0,
+    canAssemble,
+    requiredComposites: Array.from(requiredComposites),
+  };
+}
+
+/**
+ * Trigger sequential generation: composites first, then Veo clips
+ * The Veo task will automatically wait for composites to complete if needed
+ */
+export async function triggerSequentialGeneration(jobId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const job = await db.query.videoJobs.findFirst({
+    where: eq(videoJobs.id, jobId),
+  });
+
+  if (!job || job.userId !== session.user.id) {
+    throw new Error("Job not found");
+  }
+
+  if (!job.directorPlan) {
+    throw new Error("Director plan not found");
+  }
+
+  // Trigger composite generation first
+  const compositeHandle = await generateCompositesTask.trigger({ jobId });
+
+  // Trigger Veo clip generation - it will wait for composites if needed
+  const veoHandle = await generateVeoClipsTask.trigger({ jobId });
+
+  return {
+    compositeTaskId: compositeHandle.id,
+    veoTaskId: veoHandle.id,
+  };
+}
+
+/**
+ * Trigger only composite generation
+ */
+export async function triggerCompositeGeneration(jobId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const job = await db.query.videoJobs.findFirst({
+    where: eq(videoJobs.id, jobId),
+  });
+
+  if (!job || job.userId !== session.user.id) {
+    throw new Error("Job not found");
+  }
+
+  const handle = await generateCompositesTask.trigger({ jobId });
+
+  return { taskId: handle.id };
+}
+
+/**
+ * Trigger only Veo clip generation (requires composites to be done first)
+ */
+export async function triggerVeoGeneration(jobId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const job = await db.query.videoJobs.findFirst({
+    where: eq(videoJobs.id, jobId),
+  });
+
+  if (!job || job.userId !== session.user.id) {
+    throw new Error("Job not found");
+  }
+
+  const handle = await generateVeoClipsTask.trigger({ jobId });
+
+  return { taskId: handle.id };
 }
 
