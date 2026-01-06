@@ -769,9 +769,16 @@ export async function analyzeVideoWithGemini(
   productContext?: string
 ): Promise<string> {
   const defaultPrompt = productContext
-    ? `Analyze this video demo for the following product: ${productContext}.\n\nProvide a concise, action-oriented description of what is happening. Focus on specific visual beats: what the hands are doing, what the product looks like in motion, and the setting.\n\nOutput the description as 3 bullet points for my script generator.`
-    : "Analyze this video demo. Provide a concise, action-oriented description of what is happening. Focus on specific visual beats: what the hands are doing, what the product looks like in motion, and the setting. Limit the summary to 3 bullet points.";
+    ? `Analyze this video demo for the following product: ${productContext}.
   
+Provide a detailed, action-oriented breakdown. Focus on:
+1. Exact Interaction: What is being done? (e.g., "rapidly clicking," "swiping through a menu," "opening a lid").
+2. Key Visuals: Specific product features visible (e.g., "the RGB lights are flashing," "the texture of the carbon fiber").
+3. Environment: Setting and camera angle (e.g., "dimly lit room, top-down shot").
+
+Output this as a descriptive paragraph that helps a Creative Director sync AI talking head dialogue to these specific movements.`
+    : "Analyze this video demo. Provide a detailed, action-oriented breakdown of interactions, key visuals, and the environment. Output a descriptive paragraph suitable for syncing dialogue to visual beats.";
+
   const analysisPrompt = prompt || defaultPrompt;
 
   try {
@@ -852,7 +859,7 @@ export async function analyzeVideoWithGemini(
       // 3. Generate content with the video using the standard API
       // Use gemini-2.0-flash for video processing with multimodal capabilities
       const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash', // Stable model with video/multimodal support
+        model: 'gemini-2.0-flash',
         contents: [
           {
             role: 'user',

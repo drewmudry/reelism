@@ -14,6 +14,7 @@ interface Product {
   price: number | null;
   images: string[];
   hooks?: string[];
+  ctas?: string[];
   parsed: boolean;
   error: string | null;
   createdAt: Date;

@@ -19,33 +19,38 @@ export async function callDirector(input: DirectorInput): Promise<VideoGeneratio
 }
 
 function buildPrompt(input: DirectorInput): string {
-  let prompt = DIRECTOR_PROMPT;
-
-  // Replace placeholders
-  prompt = prompt.replace("{{product.name}}", input.product.name);
-  prompt = prompt.replace("{{product.price}}", input.product.price?.toString() || "N/A");
-  prompt = prompt.replace("{{product.description}}", input.product.description || "No description");
-  prompt = prompt.replace("{{product.hooks}}", JSON.stringify(input.product.hooks));
-  prompt = prompt.replace("{{preferences.tone}}", input.preferences.tone);
-  // Director chooses duration (16-24 seconds) - no need to replace placeholder
-  prompt = prompt.replace("{{preferences.targetDuration}}", "16-24 seconds (you choose optimal duration)");
-
-  // Build demos section
-  const demosSection =
-    input.demos.length > 0
-      ? input.demos.map((d, i) => `- Demo ${i + 1}: ${d.description || "No description"} (ID: ${d.id})`).join("\n")
-      : "No demo footage available.";
-  prompt = prompt.replace("{{demos}}", demosSection);
-
-  // Build existing clips section
-  const clipsSection =
-    input.existingClips.length > 0
-      ? input.existingClips.map((c) => `- ${c.id}: ${c.description} (${c.duration}s, ${c.type})`).join("\n")
-      : "No existing clips available.";
-  prompt = prompt.replace("{{existingClips}}", clipsSection);
-
-  return prompt;
-}
+    let prompt = DIRECTOR_PROMPT;
+  
+    // Replace placeholders
+    prompt = prompt.replace("{{product.name}}", input.product.name);
+    prompt = prompt.replace("{{product.price}}", input.product.price?.toString() || "N/A");
+    prompt = prompt.replace("{{product.description}}", input.product.description || "No description");
+    prompt = prompt.replace("{{product.hooks}}", JSON.stringify(input.product.hooks));
+    prompt = prompt.replace("{{preferences.tone}}", input.preferences.tone);
+    prompt = prompt.replace("{{preferences.targetDuration}}", "16-24 seconds (you choose optimal duration)");
+  
+    // Build and REPLACE demos section
+    const demosSection =
+      input.demos.length > 0
+        ? input.demos
+            .map(
+              (d, i) => `- Demo ${i + 1} (ID: ${d.id}): ${d.description || "No description provided"}`
+            )
+            .join("\n")
+        : "No demo footage available.";
+    
+    // This was the missing line:
+    prompt = prompt.replace("{{demos}}", demosSection);
+  
+    // Build and replace existing clips section
+    const clipsSection =
+      input.existingClips.length > 0
+        ? input.existingClips.map((c) => `- ${c.id}: ${c.description} (${c.duration}s, ${c.type})`).join("\n")
+        : "No existing clips available.";
+    prompt = prompt.replace("{{existingClips}}", clipsSection);
+  
+    return prompt;
+  }
 
 function extractJson(text: string): unknown {
   // Try markdown code block first

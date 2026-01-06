@@ -72,10 +72,13 @@ export function validatePlan(
   // Semantic validation
 
   // Check Veo call count
-  const expectedVeoCalls = Math.ceil(plan.totalDuration / 8);
-  if (plan.veoCalls.length > expectedVeoCalls) {
-    errors.push(`Too many Veo calls: ${plan.veoCalls.length} for ${plan.totalDuration}s video`);
-  }
+    const overlayCount = plan.segments.filter(s => s.overlayTalkingHead).length;
+    const baseExpectedCalls = Math.ceil(plan.totalDuration / 8);
+    const maxAllowedCalls = baseExpectedCalls + overlayCount;
+
+    if (plan.veoCalls.length > maxAllowedCalls) {
+    errors.push(`Too many Veo calls: ${plan.veoCalls.length}. Max allowed for ${plan.totalDuration}s with ${overlayCount} overlay talking heads is ${maxAllowedCalls}`);
+    }
 
   // Check composite references
   const compositeIds = new Set(plan.imageGeneration.map((ig) => ig.compositeId));

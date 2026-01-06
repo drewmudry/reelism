@@ -27,9 +27,15 @@ export interface UpdateProductInput {
   price?: number;
   images?: string[];
   hooks?: string[];
+  ctas?: string[];
 }
 
 export interface GenerateHooksInput {
+  title: string;
+  description?: string;
+}
+
+export interface GenerateCTAsInput {
   title: string;
   description?: string;
 }
@@ -142,6 +148,7 @@ export async function getProducts() {
       price: product.price ? parseFloat(product.price) : null,
       images: product.images,
       hooks: product.hooks,
+      ctas: product.ctas,
       parsed: product.parsed,
       error: product.error,
       createdAt: product.createdAt,
@@ -190,6 +197,7 @@ export async function getProductById(productId: string) {
       price: product.price ? parseFloat(product.price) : null,
       images: product.images,
       hooks: product.hooks,
+      ctas: product.ctas,
       parsed: product.parsed,
       error: product.error,
       createdAt: product.createdAt,
@@ -266,8 +274,73 @@ Return ONLY a valid JSON array of 5 strings, no other text:
 }
 
 /**
+ * Generate CTAs (Call to Actions) for a product using AI
+ * Creates compelling call-to-action phrases for TikTok Shop videos
+ */
+export async function generateProductCTAs(input: GenerateCTAsInput) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  try {
+    const prompt = `You are an expert TikTok Shop copywriter specializing in compelling call-to-action phrases. Generate 5 natural, action-oriented CTAs for TikTok Shop-style short videos featuring this product:
+
+Product: ${input.title}
+${input.description ? `Description: ${input.description}` : ""}
+
+Requirements for each CTA:
+- Must drive action (purchase, click, learn more)
+- Natural and conversational tone (NOT pushy or aggressive)
+- Include urgency or value proposition when appropriate
+- Optimized for TikTok's fast-paced format
+- 3-10 words each
+- Should feel authentic and compelling
+- Can use direct commands, questions, or value statements
+- Examples: "Shop now", "Get yours today", "Link in bio", "Limited time offer", "Try it yourself"
+
+Return ONLY a valid JSON array of 5 strings, no other text:
+["cta1", "cta2", "cta3", "cta4", "cta5"]`;
+
+    const response = await generateTextFlash(prompt, {
+      temperature: 0.8,
+      maxOutputTokens: 1024,
+    });
+
+    // Parse the JSON response
+    let ctas: string[];
+    try {
+      // Extract JSON array from response (handle potential markdown code blocks)
+      const jsonMatch = response.text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error("No JSON array found in response");
+      }
+      ctas = JSON.parse(jsonMatch[0]);
+
+      if (!Array.isArray(ctas) || ctas.length === 0) {
+        throw new Error("Invalid CTAs array");
+      }
+
+      // Ensure we have strings
+      ctas = ctas.filter((c): c is string => typeof c === "string" && c.trim().length > 0);
+    } catch (parseError) {
+      console.error("Failed to parse CTAs response:", response.text);
+      throw new Error("Failed to parse generated CTAs");
+    }
+
+    return { ctas };
+  } catch (error) {
+    console.error("Failed to generate product CTAs:", error);
+    throw error;
+  }
+}
+
+/**
  * Update a product
- * Allows editing title, description, price, images, and hooks
+ * Allows editing title, description, price, images, hooks, and ctas
  */
 export async function updateProduct(input: UpdateProductInput) {
   const session = await auth.api.getSession({
@@ -314,6 +387,9 @@ export async function updateProduct(input: UpdateProductInput) {
     if (input.hooks !== undefined) {
       updateData.hooks = input.hooks;
     }
+    if (input.ctas !== undefined) {
+      updateData.ctas = input.ctas;
+    }
 
     const [updated] = await db
       .update(products)
@@ -334,6 +410,7 @@ export async function updateProduct(input: UpdateProductInput) {
       price: updated.price ? parseFloat(updated.price) : null,
       images: updated.images,
       hooks: updated.hooks,
+      ctas: updated.ctas,
       parsed: updated.parsed,
       error: updated.error,
       createdAt: updated.createdAt,

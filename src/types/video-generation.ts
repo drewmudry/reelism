@@ -21,11 +21,13 @@ export type ImageGenerationTask = {
 };
 
 export type VideoSegment = {
-  segmentIndex: number;
-  veoCallId: string | null; // e.g., "veo_1", null for demo_broll
-  startTime: number; // within the veo call
-  endTime: number;
-  type: "talking_head" | "demo_broll" | "product_broll" | "virtual_broll";
+    segmentIndex: number;
+    veoCallId: string | null;      // The TALKING HEAD (overlay face or full screen)
+    brollVeoCallId?: string;       // NEW: The BACKGROUND (for virtual_broll overlays)
+    startTime: number; 
+    endTime: number;
+    type: "talking_head" | "demo_broll" | "product_broll" | "virtual_broll";
+    overlayTalkingHead?: boolean;
 
   // For talking_head
   script?: string;
@@ -35,7 +37,7 @@ export type VideoSegment = {
   // For demo_broll
   demoId?: string;
   demoTimestamp?: [number, number];
-  overlayTalkingHead?: boolean;
+
 
   // For product_broll / virtual_broll
   productImageIndex?: number;

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddProductManually } from "./add-product-manually";
 import { ProductHooksStep } from "./product-hooks-step";
+import { ProductCTAsStep } from "./product-ctas-step";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,7 +19,7 @@ interface AddProductModalProps {
   onProductAdded?: () => void;
 }
 
-type ModalStep = "details" | "hooks";
+type ModalStep = "details" | "hooks" | "ctas";
 
 interface ProductData {
   productId: string;
@@ -39,7 +40,12 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
     setError(null);
   };
 
-  const handleComplete = () => {
+  const handleHooksComplete = () => {
+    // Move to CTAs step
+    setCurrentStep("ctas");
+  };
+
+  const handleCTAsComplete = () => {
     // Reset state and close modal
     setProductData(null);
     setCurrentStep("details");
@@ -51,9 +57,14 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
   };
 
   const handleBack = () => {
-    // Go back to details step
-    setCurrentStep("details");
-    setProductData(null);
+    if (currentStep === "ctas") {
+      // Go back to hooks step
+      setCurrentStep("hooks");
+    } else if (currentStep === "hooks") {
+      // Go back to details step
+      setCurrentStep("details");
+      setProductData(null);
+    }
   };
 
   const handleError = (errorMessage: string) => {
@@ -84,12 +95,18 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentStep === "details" ? "Add Product" : "Add Hooks"}
+              {currentStep === "details"
+                ? "Add Product"
+                : currentStep === "hooks"
+                ? "Add Hooks"
+                : "Add CTAs"}
             </DialogTitle>
             <DialogDescription>
               {currentStep === "details"
                 ? "Add your product details"
-                : "Add attention-grabbing hooks for TikTok Shop videos"}
+                : currentStep === "hooks"
+                ? "Add attention-grabbing hooks for TikTok Shop videos"
+                : "Add compelling call-to-action phrases for TikTok Shop videos"}
             </DialogDescription>
           </DialogHeader>
 
@@ -104,12 +121,20 @@ export function AddProductModal({ onProductAdded }: AddProductModalProps) {
               onProductCreated={handleProductCreated}
               onError={handleError}
             />
-          ) : productData ? (
+          ) : currentStep === "hooks" && productData ? (
             <ProductHooksStep
               productId={productData.productId}
               productTitle={productData.title}
               productDescription={productData.description}
-              onComplete={handleComplete}
+              onComplete={handleHooksComplete}
+              onBack={handleBack}
+            />
+          ) : currentStep === "ctas" && productData ? (
+            <ProductCTAsStep
+              productId={productData.productId}
+              productTitle={productData.title}
+              productDescription={productData.description}
+              onComplete={handleCTAsComplete}
               onBack={handleBack}
             />
           ) : null}
