@@ -1,15 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createVideoJob, getVideoJob } from "@/actions/video-jobs";
+import { getVideoJob } from "@/actions/video-jobs";
+import { createVideoJobWithPlan } from "@/actions/video-jobs-manual";
+import { useRouter } from "next/navigation";
 import { testDirector } from "@/actions/test-director";
 import { ProductList } from "@/components/product/product-list";
 import { AvatarListModal } from "@/components/avatar/avatar-list-modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, Video, Download, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Video, Download, AlertCircle, ChevronDown, ChevronUp, CheckCircle2, Circle } from "lucide-react";
 import { getProducts } from "@/actions/products";
 import { getAvatars } from "@/actions/get-avatars";
 import { getUserDemos } from "@/actions/demos";
+import { getUserVideoJobs } from "@/actions/video-jobs";
 
 interface Product {
   id: string;
@@ -41,6 +46,7 @@ interface VideoJob {
 }
 
 export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
+  const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<Avatar | null>(null);
   const [selectedDemos, setSelectedDemos] = useState<Demo[]>([]);
@@ -49,6 +55,8 @@ export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
   const [generating, setGenerating] = useState(false);
   const [testingDirector, setTestingDirector] = useState(false);
   const [directorResult, setDirectorResult] = useState<any>(null);
+  const [currentJob, setCurrentJob] = useState<{ id: string; plan: any } | null>(null);
+  const [selectionCollapsed, setSelectionCollapsed] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [demos, setDemos] = useState<Demo[]>([]);
@@ -120,26 +128,35 @@ export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleRunDirector = async () => {
     if (!selectedProduct || !selectedAvatar) return;
 
     setGenerating(true);
     try {
-      const { jobId } = await createVideoJob({
+      const { jobId, plan } = await createVideoJobWithPlan({
         productId: selectedProduct.id,
         avatarId: selectedAvatar.id,
         demoIds: selectedDemos.map((d) => d.id),
         tone,
-        // Duration will be determined by the director (16-24 seconds to maximize Veo clip utilization)
       });
 
-      // Poll for status
-      pollJobStatus(jobId);
+      setCurrentJob({ id: jobId, plan });
+      setSelectionCollapsed(true);
+      
+      // Refresh jobs list
+      const updatedJobs = await getUserVideoJobs();
+      setJobs(updatedJobs);
     } catch (error) {
       console.error("Failed to create job:", error);
       alert("Failed to create video job. Please try again.");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGoToJob = () => {
+    if (currentJob) {
+      router.push(`/app/ugc/${currentJob.id}`);
     }
   };
 
@@ -166,6 +183,14 @@ export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
     }, 2000);
   };
 
+  const steps = [
+    { id: 1, name: "Select Product & Avatar", completed: !!selectedProduct && !!selectedAvatar },
+    { id: 2, name: "Run Director", completed: !!currentJob },
+    { id: 3, name: "Generate Composite Images", completed: false },
+    { id: 4, name: "Generate Veo Clips", completed: false },
+    { id: 5, name: "Assemble Video", completed: false },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -175,7 +200,59 @@ export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Pipeline Steps */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pipeline Steps</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 flex-shrink-0">
+                  {step.completed ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className={`font-medium ${step.completed ? "text-green-600" : ""}`}>
+                    Step {step.id}: {step.name}
+                  </p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className="w-px h-8 bg-border ml-4" />
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step 1: Selection (Collapsible) */}
+      <Collapsible open={!selectionCollapsed} onOpenChange={(open) => setSelectionCollapsed(!open)}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Step 1: Select Product & Avatar</CardTitle>
+                <CardDescription>
+                  {selectedProduct && selectedAvatar 
+                    ? `${selectedProduct.title || "Product"} • Avatar Selected`
+                    : "Choose your product and avatar"}
+                </CardDescription>
+              </div>
+              {selectionCollapsed ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2">
         {/* Product Selection */}
         <div className="space-y-2">
           <label className="block text-sm font-medium">Product</label>
@@ -319,97 +396,135 @@ export function UGCClient({ initialJobs }: { initialJobs: VideoJob[] }) {
             <option value="luxury and aspirational">Luxury & Aspirational</option>
           </select>
         </div>
-
-      </div>
-
-      {/* Test Director Button */}
-      <Button
-        onClick={handleTestDirector}
-        disabled={!selectedProduct || !selectedAvatar || testingDirector}
-        variant="outline"
-        className="w-full"
-        size="lg"
-      >
-        {testingDirector ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Testing Director...
-          </>
-        ) : (
-          <>
-            Test Director (Step 1)
-          </>
-        )}
-      </Button>
-
-      {/* Director Result Display */}
-      {directorResult && (
-        <div className="border rounded-lg p-4 bg-gray-50">
-          <h3 className="font-semibold mb-2">Director Test Result</h3>
-          <div className="space-y-2 text-sm">
-            <div>
-              <strong>Valid:</strong> {directorResult.validation.valid ? "✅ Yes" : "❌ No"}
-            </div>
-            {directorResult.validation.errors.length > 0 && (
-              <div>
-                <strong>Errors:</strong>
-                <ul className="list-disc list-inside text-red-600">
-                  {directorResult.validation.errors.map((err: string, i: number) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
               </div>
-            )}
-            {directorResult.validation.warnings.length > 0 && (
-              <div>
-                <strong>Warnings:</strong>
-                <ul className="list-disc list-inside text-yellow-600">
-                  {directorResult.validation.warnings.map((warn: string, i: number) => (
-                    <li key={i}>{warn}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div>
-              <strong>Chosen Duration:</strong> {directorResult.plan.totalDuration}s
-            </div>
-            <div>
-              <strong>Veo Calls:</strong> {directorResult.plan.veoCalls.length}
-            </div>
-            <div>
-              <strong>Segments:</strong> {directorResult.plan.segments.length}
-            </div>
-            <details className="mt-2">
-              <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                View Full Plan (JSON)
-              </summary>
-              <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-96">
-                {JSON.stringify(directorResult.plan, null, 2)}
-              </pre>
-            </details>
-          </div>
-        </div>
-      )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      {/* Generate Button */}
-      <Button
-        onClick={handleGenerate}
-        disabled={!selectedProduct || !selectedAvatar || generating}
-        className="w-full"
-        size="lg"
-      >
-        {generating ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Creating...
-          </>
-        ) : (
-          <>
-            <Video className="w-4 h-4 mr-2" />
-            Generate Video
-          </>
-        )}
-      </Button>
+      {/* Step 2: Run Director */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Step 2: Run Director</CardTitle>
+          <CardDescription>
+            The director will create a video generation plan based on your selections
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!currentJob ? (
+            <>
+              <Button
+                onClick={handleRunDirector}
+                disabled={!selectedProduct || !selectedAvatar || generating}
+                className="w-full"
+                size="lg"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Running Director...
+                  </>
+                ) : (
+                  <>
+                    <Video className="w-4 h-4 mr-2" />
+                    Run Director
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                onClick={handleTestDirector}
+                disabled={!selectedProduct || !selectedAvatar || testingDirector}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
+                {testingDirector ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Testing Director...
+                  </>
+                ) : (
+                  "Test Director (Preview)"
+                )}
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="font-medium">Director plan created successfully!</span>
+              </div>
+              <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+                <div><strong>Duration:</strong> {currentJob.plan.totalDuration}s</div>
+                <div><strong>Veo Calls:</strong> {currentJob.plan.veoCalls.length}</div>
+                <div><strong>Composite Images:</strong> {currentJob.plan.imageGeneration.length}</div>
+                <div><strong>Segments:</strong> {currentJob.plan.segments.length}</div>
+              </div>
+              <Button
+                onClick={handleGoToJob}
+                className="w-full"
+                size="lg"
+              >
+                Continue to Step 3: Generate Assets
+              </Button>
+            </div>
+          )}
+
+          {/* Director Test Result Display */}
+          {directorResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Director Test Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <strong>Valid:</strong> {directorResult.validation.valid ? "✅ Yes" : "❌ No"}
+                  </div>
+                  {directorResult.validation.errors.length > 0 && (
+                    <div>
+                      <strong>Errors:</strong>
+                      <ul className="list-disc list-inside text-red-600">
+                        {directorResult.validation.errors.map((err: string, i: number) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {directorResult.validation.warnings.length > 0 && (
+                    <div>
+                      <strong>Warnings:</strong>
+                      <ul className="list-disc list-inside text-yellow-600">
+                        {directorResult.validation.warnings.map((warn: string, i: number) => (
+                          <li key={i}>{warn}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <strong>Chosen Duration:</strong> {directorResult.plan.totalDuration}s
+                  </div>
+                  <div>
+                    <strong>Veo Calls:</strong> {directorResult.plan.veoCalls.length}
+                  </div>
+                  <div>
+                    <strong>Segments:</strong> {directorResult.plan.segments.length}
+                  </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                      View Full Plan (JSON)
+                    </summary>
+                    <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-96">
+                      {JSON.stringify(directorResult.plan, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Jobs List */}
       <div className="mt-8">

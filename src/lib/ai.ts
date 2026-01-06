@@ -425,12 +425,57 @@ export async function generateTextPro(
       },
     });
 
-    if (!response.text) {
-      throw new Error('No text was generated');
+    // Extract text from response FIRST (before checking finish reasons)
+    // This way we can still return partial text even if MAX_TOKENS was hit
+    let text: string | undefined;
+    
+    // Try direct text property first
+    if (response.text) {
+      text = response.text;
+    } 
+    // Try extracting from candidates
+    else if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      if (candidate.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            text = part.text;
+            break;
+          }
+        }
+      }
+    }
+
+    // Check for blocking reasons or errors AFTER extracting text
+    if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      
+      // MAX_TOKENS means we hit the token limit - still use the text but warn
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        console.warn('Text generation hit token limit - response may be incomplete. Consider increasing maxOutputTokens.');
+        // Still return the text even if incomplete - it might still be valid JSON
+      }
+      // Other non-STOP reasons are actual errors (but only if we have no text)
+      else if (candidate.finishReason && candidate.finishReason !== 'STOP' && !text) {
+        throw new Error(`Text generation was blocked or stopped. Finish reason: ${candidate.finishReason}`);
+      }
+      
+      if (candidate.safetyRatings && candidate.safetyRatings.some((r: any) => r.blocked)) {
+        const blockedReasons = candidate.safetyRatings
+          .filter((r: any) => r.blocked)
+          .map((r: any) => `${r.category}: ${r.probability}`)
+          .join(', ');
+        throw new Error(`Text generation was blocked by safety filters: ${blockedReasons}`);
+      }
+    }
+
+    if (!text) {
+      console.error('Response structure:', JSON.stringify(response, null, 2));
+      throw new Error('No text was generated - check response structure above');
     }
 
     return {
-      text: response.text,
+      text,
       usageMetadata: {
         promptTokenCount: response.usageMetadata?.promptTokenCount,
         candidatesTokenCount: response.usageMetadata?.candidatesTokenCount,
@@ -480,12 +525,57 @@ export async function generateTextFlash(
       },
     });
 
-    if (!response.text) {
-      throw new Error('No text was generated');
+    // Extract text from response FIRST (before checking finish reasons)
+    // This way we can still return partial text even if MAX_TOKENS was hit
+    let text: string | undefined;
+    
+    // Try direct text property first
+    if (response.text) {
+      text = response.text;
+    } 
+    // Try extracting from candidates
+    else if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      if (candidate.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            text = part.text;
+            break;
+          }
+        }
+      }
+    }
+
+    // Check for blocking reasons or errors AFTER extracting text
+    if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      
+      // MAX_TOKENS means we hit the token limit - still use the text but warn
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        console.warn('Text generation hit token limit - response may be incomplete. Consider increasing maxOutputTokens.');
+        // Still return the text even if incomplete - it might still be valid JSON
+      }
+      // Other non-STOP reasons are actual errors (but only if we have no text)
+      else if (candidate.finishReason && candidate.finishReason !== 'STOP' && !text) {
+        throw new Error(`Text generation was blocked or stopped. Finish reason: ${candidate.finishReason}`);
+      }
+      
+      if (candidate.safetyRatings && candidate.safetyRatings.some((r: any) => r.blocked)) {
+        const blockedReasons = candidate.safetyRatings
+          .filter((r: any) => r.blocked)
+          .map((r: any) => `${r.category}: ${r.probability}`)
+          .join(', ');
+        throw new Error(`Text generation was blocked by safety filters: ${blockedReasons}`);
+      }
+    }
+
+    if (!text) {
+      console.error('Response structure:', JSON.stringify(response, null, 2));
+      throw new Error('No text was generated - check response structure above');
     }
 
     return {
-      text: response.text,
+      text,
       usageMetadata: {
         promptTokenCount: response.usageMetadata?.promptTokenCount,
         candidatesTokenCount: response.usageMetadata?.candidatesTokenCount,

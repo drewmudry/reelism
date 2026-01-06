@@ -7,8 +7,9 @@ export async function callDirector(input: DirectorInput): Promise<VideoGeneratio
   const prompt = buildPrompt(input);
 
   // Use generateTextPro from ai.ts
+  // Increased maxOutputTokens to 8192 to handle large director plans
   const response = await generateTextPro(prompt, {
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     temperature: 0.7,
   });
 
